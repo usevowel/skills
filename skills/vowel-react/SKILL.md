@@ -1,11 +1,17 @@
 ---
 name: vowel-react
-description: Initialize vowel.to voice agent in React applications (React, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
+description: Initialize vowel.to voice agent in React applications (React, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getGameState fallback). The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
 ---
 
 # Vowel React Integration
 
 Initialize a vowel.to voice agent in a React application with proper navigation, state management, and custom actions.
+
+## What is Vowel?
+
+**vowel** (lowercase) is a SaaS platform that adds AI-powered voice agents to web applications. The `@vowel.to/client` package provides real-time voice interaction via Gemini Live API, OpenAI Realtime API, or vowel-prime. Key capabilities: **smart navigation** (voice-controlled routing), **custom actions** (business logic via voice), and optional **page automation** (DOM interaction). For React apps, prefer state-driven custom actions over DOM automation.
+
+**Languages:** Of 99+ Whisper languages (client VAD), only those Inworld TTS can speak are supported (12: en, es, fr, de, it, pt, ko, zh, ja, nl, pl, ru). AssemblyAI (server VAD) supports 6. **VAD:** `client_vad` (default), `server_vad`, `semantic_vad`, `disabled`. **Connection paradigms:** appId, developer-managed tokens, fixed API keys, direct WebSocket, sidecar. See **references/platform-overview.md**, **references/languages-and-vad.md**, **references/connection-paradigms.md**.
 
 ## Overview
 
@@ -13,6 +19,7 @@ This skill provides complete guidance for integrating vowel.to voice agents into
 
 - Installation and client setup for all major React routers
 - Navigation adapter configuration (TanStack Router, Next.js, React Router, custom)
+- **Context-ready initialization** - ensure stores are loaded before client init, push initial context
 - State management integration with automatic context syncing
 - Custom action design and registration
 - Voice UI components and configuration
@@ -44,6 +51,71 @@ The DOM automation adapter and floating cursor feature should be **disabled by d
 - Need to interact with third-party widgets not under your control
 - Legacy systems where state management isn't available
 
+### ⚠️ CRITICAL: Initial Greeting + Captions Enabled by Default
+
+Always configure an app-specific `initialGreetingPrompt` and enable captions by default.
+
+**Why this matters:**
+- The first response should feel native to the app's domain and current page
+- Captions improve accessibility and make voice interactions easier to follow
+- A concrete greeting prompt reduces generic/awkward session starts
+
+### ⚠️ CRITICAL: Router Initialization Order (Prevent Circular Import Runtime Failures)
+
+For TanStack Router integrations, keep router creation in a dedicated `router.ts` module and import that shared instance in both `main/App` and `vowel.client.ts`.
+
+**Prevent this runtime error:**  
+`vowel.client.ts:44 Uncaught ReferenceError: Cannot access 'router' before initialization`
+
+**Required pattern:**
+- `router.ts`: defines and exports `router`
+- `vowel.client.ts`: imports `{ router }` from `router.ts`
+- `main.tsx` / `App.tsx`: imports `{ router }` from `router.ts`
+- Never define `createRouter(...)` in `main.tsx`/`App.tsx` if `vowel.client.ts` depends on that router
+- Never import `vowel.client.ts` from `router.ts`
+
+### ⚠️ CRITICAL: Context-Ready Initialization
+
+**Initialize the Vowel client only after app context (stores, localStorage) is ready.** Do not call `setAppId` at module load.
+
+**Why this matters:**
+- App stores (userName, language, etc.) often load from localStorage on mount
+- The AI needs state for the initial greeting - context may not be populated when the session starts
+- `voiceConfig.language` should match the user's stored preference
+- Push initial context immediately after creating the client
+- If a root/layout gates rendering on readiness, the initializer for that dependency must run before or outside the gated subtree or the app can deadlock on a permanent loading screen
+
+**Key patterns:**
+1. Call `setAppId` from `useEffect` after App mounts
+2. Push `buildVowelContext()` after creating the client: `vowelInstance.updateContext(buildVowelContext())`
+3. Show a loading gate until client exists before rendering `VowelProvider`
+4. Register a `getGameState`/`getAppState` action; instruct the AI to call it **first** for the initial greeting (context may not be synced yet)
+5. Sync listener immediately on subscribe if client already exists
+6. If rendering is gated on `vowelReady` (or similar), mount the initializer outside that gate so it still runs while loading
+7. For optional integrations, prefer fail-open behavior: log init failure and continue rendering the app instead of blocking the entire root/layout
+
+For complete patterns, see **references/initialization-context-ready.md**.
+
+### ⚠️ CRITICAL: Startup Deadlock Guard
+
+During code generation and reviews, explicitly look for bootstrap deadlocks:
+
+- A root/layout shows a loading state until an optional client, service, or integration is "ready"
+- The code that initializes that dependency only runs inside components rendered after the readiness gate passes
+- Hook API assumptions accidentally skip initialization entirely (for example, treating a hook as self-starting when it requires invocation, or reading a return value that never triggers setup)
+
+Treat this as a **startup deadlock risk**. Required response:
+
+- Flag it during review
+- Move initialization before or outside the gated subtree
+- Verify readiness-gated dependencies are initialized unconditionally on mount
+- For optional integrations, fail open: log init failure and keep rendering the app
+- Check hook usage carefully so setup is actually invoked and subscribed as intended
+
+Suggested review rule text:
+
+> If a React root/layout gates rendering on X being ready, ensure the initializer for X is not mounted behind that same gate. Optional integrations must initialize before the gate or fail open instead of blocking the entire app.
+
 ## Prerequisites
 
 - React 18+ application
@@ -54,39 +126,21 @@ The DOM automation adapter and floating cursor feature should be **disabled by d
 ## Installation
 
 ```bash
-# The @vowel.to/client package is currently a local development package
-bun link @vowel.to/client
+# Install @vowel.to/client and required VAD dependency
+bun add @vowel.to/client @ricky0123/vad-web
 
 # Or if using npm/yarn:
-npm install @vowel.to/client
-# yarn add @vowel.to/client
+npm install @vowel.to/client @ricky0123/vad-web
+# yarn add @vowel.to/client @ricky0123/vad-web
 ```
 
 ## Quick Start (TanStack Router)
 
 TanStack Router is recommended because it provides automatic route discovery.
 
-### 0. Required Route Tree Generation Check
-
-If the project uses TanStack file-based routing, make sure the route tree is generated before finishing. `routeTree.gen.ts` should exist (default: `src/routeTree.gen.ts`, or custom path from `tsr.config.json` `generatedRouteTree`).
-
-Use this order:
-
-1. If the project already has route-generation scripts, run them with the repo package manager:
-   - `generate-routes`
-   - `watch-routes` (for dev workflows)
-2. If no script exists and route tree is missing/stale, run one-shot CLI generation:
-   - bun: `bunx @tanstack/router-cli generate`
-   - pnpm: `pnpm dlx @tanstack/router-cli generate`
-   - yarn: `yarn dlx @tanstack/router-cli generate`
-   - npm: `npx @tanstack/router-cli generate`
-3. Re-run typecheck/build and verify route tree import errors are gone.
-
-Important: prefer the project's existing package manager/scripts first. Do not switch package managers.
-
 ### 1. Create Router File
 
-Create `router.ts` to avoid circular dependencies:
+Create `router.ts` to avoid circular dependencies and router-before-init errors:
 
 ```typescript
 import { createRouter } from '@tanstack/react-router';
@@ -109,19 +163,26 @@ Create `vowel.client.ts`:
 import { Vowel, createTanStackAdapters } from '@vowel.to/client';
 import { router } from './router';
 
+/** Minimal context builder - expand with app stores when using state sync. See initialization-context-ready.md */
+function buildVowelContext() {
+  const loc = router.state.location;
+  return { route: { pathname: loc.pathname, pathnameLabel: loc.pathname || 'Home', search: String(loc.search) } };
+}
+
 let currentAppId: string | null = null;
 let vowelInstance: Vowel | null = null;
 
 type VowelChangeListener = (client: Vowel | null) => void;
 const vowelChangeListeners = new Set<VowelChangeListener>();
 
-// ⚠️ CRITICAL: Automation adapter disabled by default
-const { navigationAdapter, automationAdapter } = createTanStackAdapters({
-  router: router as any,
-  enableAutomation: false  // ❌ Disabled by default
-});
-
 function createVowelClient(appId: string): Vowel {
+  // ⚠️ CRITICAL: Create adapters inside the factory, not at module scope.
+  // This prevents router-before-init runtime errors from circular initialization.
+  const { navigationAdapter, automationAdapter } = createTanStackAdapters({
+    router: router as any,
+    enableAutomation: false  // ❌ Disabled by default
+  });
+
   const vowel = new Vowel({
     appId: appId,
     instructions: `You are a helpful assistant for this application.
@@ -132,11 +193,14 @@ function createVowelClient(appId: string): Vowel {
 ## CRITICAL: Always Refer to Context for Information
 Before answering ANY question or performing ANY action, ALWAYS check the <context> section for current information. The context contains the most up-to-date state of the application.
 
+## CRITICAL: Initial Greeting (First Thing You Say)
+When you first speak in a new session, you MUST call getGameState() FIRST. The context may not be populated yet - getGameState() reliably returns the current route, games state, userName, language, etc. Do NOT rely on context alone for the initial greeting.
+
 ## Current Application State:
 The current state is automatically provided in the <context> section. You always have access to the latest state - no need to call any actions to read it.
 
 ## Available Actions:
-[Document your custom actions here]
+[Document your custom actions here, including getGameState for initial greeting]
 
 Help users navigate and interact with the application by modifying state through registered actions.`,
     
@@ -151,13 +215,25 @@ Help users navigate and interact with the application by modifying state through
       intensity: 30,
       pulse: true
     },
+
+    // ✅ Enable captions by default
+    // @ts-ignore - internal caption config may not be fully typed in all builds
+    _caption: {
+      enabled: true,
+      position: 'top-center',
+      maxWidth: '600px',
+      showRole: true,
+      showOnMobile: false
+    },
     
     voiceConfig: {
       provider: 'vowel-prime',
       vowelPrimeConfig: { environment: 'staging' },
-      model: "google/gemini-3-flash-preview",
+      llmProvider: 'groq',
+      model: "openai/gpt-oss-120b",
       voice: 'Timothy',
-      language: 'en-US'
+      language: 'en-US',
+      initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using available context (route/page and user state), then ask what they want to do next.`
     },
     
     onUserSpeakingChange: (isSpeaking) => {
@@ -175,9 +251,17 @@ Help users navigate and interact with the application by modifying state through
   return vowel;
 }
 
+/**
+ * Create the Vowel client. Call only after app state is loaded from localStorage
+ * (i.e. from useEffect after App mounts, not at module load).
+ * Pushes initial context from app/games stores so the AI has state immediately.
+ */
 export function setAppId(appId: string) {
+  if (!appId) return;
   currentAppId = appId;
   vowelInstance = createVowelClient(appId);
+  /** Push initial context from stores (userName, language, games, etc.) */
+  vowelInstance.updateContext(buildVowelContext());
   console.log('✅ Vowel client initialized with App ID:', appId);
   vowelChangeListeners.forEach(listener => listener(vowelInstance));
 }
@@ -188,12 +272,25 @@ export function getVowel(): Vowel | null {
 
 export function subscribeToVowelChanges(listener: VowelChangeListener): () => void {
   vowelChangeListeners.add(listener);
-  return () => { vowelChangeListeners.delete(listener); };
+  /** Sync with current client immediately - handles race where client was created before we subscribed */
+  if (vowelInstance) {
+    listener(vowelInstance);
+  }
+  return () => vowelChangeListeners.delete(listener);
 }
 
 function registerCustomActions(vowel: Vowel) {
   // ⚠️ CRITICAL: All actions MUST be registered BEFORE startSession()!
   // ⚠️ CRITICAL: Actions should write to app store, NOT manipulate DOM!
+
+  // getGameState: Call FIRST for initial greeting - context may not be synced yet
+  vowel.registerAction('getGameState', {
+    description: 'Get current route, ui, userName, language, games. CALL THIS FIRST when starting a new session (initial greeting) - context may not be populated yet.',
+    parameters: {},
+  }, async () => {
+    const state = buildVowelContext();
+    return { success: true, ...state };
+  });
   
   // ✅ Good: Action writes to app store
   vowel.registerAction('searchProducts', {
@@ -215,46 +312,85 @@ export type VowelClientType = Vowel | null;
 
 ### 3. Integrate in App
 
-Update `src/App.tsx`:
+Update `src/App.tsx`. Use deferred init (setAppId in useEffect) and a loading gate until the client is ready:
 
 ```typescript
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { RouterProvider } from '@tanstack/react-router';
 import { VowelProvider } from '@vowel.to/client/react';
 import { router } from './router';
-import { getVowel, subscribeToVowelChanges, type VowelClientType } from './vowel.client';
+import { getVowel, setAppId, subscribeToVowelChanges, type VowelClientType } from './vowel.client';
 
-function App() {
+/** Initialize Vowel when app ID is available, after app state is loaded from localStorage. */
+function useVowelInit() {
+  useEffect(() => {
+    const appId = import.meta.env.VITE_VOWEL_APP_ID;
+    if (appId) setAppId(appId);
+  }, []);
+}
+
+/** Runs Vowel init (setAppId). Must be mounted outside the loading gate so init runs on mount. Renders nothing. */
+function VowelInit() {
+  useVowelInit();
+  return null;
+}
+
+/** Loading placeholder until Vowel client is ready. */
+function AppLoading() {
+  return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
+}
+
+function AppContent() {
   const [vowel, setVowel] = useState<VowelClientType>(getVowel());
+  const appId = import.meta.env.VITE_VOWEL_APP_ID;
 
   useEffect(() => {
-    const unsubscribe = subscribeToVowelChanges((newClient) => {
-      setVowel(newClient);
-    });
-    return () => { unsubscribe(); };
+    const unsubscribe = subscribeToVowelChanges((client) => setVowel(client));
+    return () => unsubscribe();
   }, []);
 
+  const vowelReady = vowel !== null || !appId;
+  if (!vowelReady) return <AppLoading />;
+
   return (
-    <VowelProvider client={vowel as any}>
+    <VowelProvider client={vowel ?? null}>
       <RouterProvider router={router} />
     </VowelProvider>
+  );
+}
+
+function App() {
+  return (
+    <>
+      <VowelInit />   {/* Runs outside gate - setAppId runs on mount */}
+      <AppContent />  {/* Shows loading until client ready */}
+    </>
   );
 }
 
 export default App;
 ```
 
-### 4. Add Voice UI to Root Route
+Deadlock review check for this pattern:
 
-Update `src/routes/__root.tsx`:
+- If `AppContent` returns loading until `vowelReady`, `VowelInit` must stay mounted outside that gate
+- Do not move `useVowelInit()` into a component that only renders after `vowelReady`
+- If Vowel is optional and init fails, catch/log the error and continue rendering with `client={null}` instead of blocking the entire app
+- Verify any integration hooks used here actually perform setup the way you expect; incorrect invocation style can silently skip initialization
+
+### 4. Add Voice UI and State Sync to Root Route
+
+Update `src/routes/__root.tsx`. Mount `VowelStateSync` inside the route tree (inside both RouterProvider and VowelProvider) so it has access to `useRouterState` and `useSyncContext`:
 
 ```typescript
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { VowelAgent } from '@vowel.to/client/react';
+import { VowelStateSync } from './vowel.state';  // or useAppStateSync wrapper component
 
 function RootComponent() {
   return (
     <div className="min-h-screen">
+      <VowelStateSync />
       <nav>{/* Your navigation */}</nav>
       <main>
         <Outlet />
@@ -376,7 +512,6 @@ vowel.registerAction('addToCart', {
 - Use shallow parameters (strings, numbers, booleans)
 - Keep action count manageable (10-15 maximum)
 - Register all actions BEFORE startSession()
-- **In your todo list, include the names of each vowel custom action you register** (e.g., addToCart, searchProducts, filterProductsByCategory) so reviewers can see the full set at a glance
 
 **❌ DON'T:**
 - Don't manipulate DOM directly (use state instead)
@@ -433,11 +568,22 @@ If the user explicitly requests DOM automation capabilities, you can enable it:
 ### 1. Update Adapter Creation
 
 ```typescript
-// Enable automation in adapter creation
-const { navigationAdapter, automationAdapter } = createTanStackAdapters({
-  router: router as any,
-  enableAutomation: true  // ✅ Enable if user explicitly requests
-});
+function createVowelClient(appId: string): Vowel {
+  // Enable automation in adapter creation
+  // Keep adapter creation inside the factory to avoid router init ordering issues.
+  const { navigationAdapter, automationAdapter } = createTanStackAdapters({
+    router: router as any,
+    enableAutomation: true  // ✅ Enable if user explicitly requests
+  });
+
+  return new Vowel({
+    appId: appId,
+    navigationAdapter,
+    automationAdapter,
+    floatingCursor: { enabled: true }
+    // ... rest of config
+  });
+}
 ```
 
 ### 2. Add Automation Adapter to Vowel Config
@@ -539,25 +685,42 @@ import { VowelMicrophone } from '@vowel.to/client/react';
 
 1. **Client is null**
    - Make sure VowelProvider has initialized the client before rendering components
+   - Call `setAppId()` from `useEffect` after App mounts (not at module load)
+   - Use loading gate until `vowel !== null || !appId` before rendering VowelProvider
    - For TanStack Router: Use `getVowel()` and `subscribeToVowelChanges()` pattern
    - Check that `setAppId()` has been called
+   - Check for a startup deadlock: if the loading gate hides the component that calls `setAppId()`, readiness can never flip
+   - For optional integrations, log init failure and continue rendering instead of leaving the root/layout blocked forever
+   - Verify hook setup code is actually invoked; a mistaken assumption about a hook's return value or invocation style can skip initialization entirely
 
 2. **Routes not working**
    - **TanStack Router**: Import router instance from `router.ts`, not using `useRouter()` hook
    - **React Router**: Verify `navigate` and `location` are from hooks
    - **Next.js**: Ensure correct import (`next/navigation` for App Router)
 
-3. **Actions not executing**
+3. **`Cannot access 'router' before initialization` (e.g., `vowel.client.ts:44`)**
+   - Move router creation to dedicated `router.ts`
+   - Import router from `router.ts` in both `main/App` and `vowel.client.ts`
+   - Remove circular imports between `router.ts`, `vowel.client.ts`, and route/root files
+   - Do not define router in `main.tsx`/`App.tsx` when `vowel.client.ts` uses it
+
+4. **Actions not executing**
    - Ensure actions are registered BEFORE calling `startSession()`
    - Check that action handlers return a result object
    - Look for errors in the browser console
 
-4. **State not syncing**
+5. **State not syncing**
    - Verify `useAppStateSync` hook is called inside `VowelProvider`
    - Check that state management hooks are reactive (useSnapshot, useStore, etc.)
    - Ensure context object is serializable
 
-5. **Microphone not working**
+6. **AI has wrong/empty state on first turn / initial greeting**
+   - Context may not be populated when session starts - `useSyncContext` runs inside route tree
+   - Push initial context after creating client: `vowelInstance.updateContext(buildVowelContext())`
+   - Register `getGameState` action and instruct AI to call it FIRST for initial greeting
+   - See **references/initialization-context-ready.md**
+
+7. **Microphone not working**
    - Ensure HTTPS (localhost works without HTTPS)
    - Check browser permissions for microphone access
 
@@ -574,6 +737,10 @@ import { VowelMicrophone } from '@vowel.to/client/react';
 
 For detailed information on specific topics:
 
+- **references/platform-overview.md** - What vowel is, key concepts (appId, tokens, adapters), connection flow, monorepo structure
+- **references/languages-and-vad.md** - Supported languages (Whisper, AssemblyAI, Inworld TTS), VAD modes (client_vad, server_vad, semantic_vad)
+- **references/connection-paradigms.md** - appId, developer-managed tokens, fixed API keys, direct WebSocket, sidecar pattern
+- **references/initialization-context-ready.md** - Context-ready initialization, loading gate, buildVowelContext, getGameState fallback
 - **references/router-adapters.md** - Complete router setup guide for all supported routers
 - **references/state-management.md** - State management integration patterns (Valtio, Zustand, Redux)
 - **references/custom-actions.md** - Custom action design and best practices

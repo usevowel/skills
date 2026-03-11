@@ -12,25 +12,7 @@ Complete reference for all supported routers and their adapter configurations.
 
 ## TanStack Router Setup (Recommended - Auto Route Discovery!)
 
-**Important:** Create a separate `router.ts` file to avoid circular dependencies.
-
-### Route Tree Generation Guardrails
-
-TanStack Router requires a generated route tree file. Default path is `src/routeTree.gen.ts` unless overridden in `tsr.config.json` (`generatedRouteTree`).
-
-Checklist:
-
-1. Confirm the router plugin exists in Vite projects:
-   - `@tanstack/router-plugin/vite` with `tanstackRouter()` in `vite.config.*`
-2. Run existing project scripts first (with repo package manager):
-   - `generate-routes` for one-shot
-   - `watch-routes` for dev
-3. If missing and no scripts exist, run CLI directly:
-   - bun: `bunx @tanstack/router-cli generate`
-   - pnpm: `pnpm dlx @tanstack/router-cli generate`
-   - yarn: `yarn dlx @tanstack/router-cli generate`
-   - npm: `npx @tanstack/router-cli generate`
-4. Re-run typecheck/build and confirm imports like `./routeTree.gen` resolve.
+**Important:** Create a separate `router.ts` file to avoid circular dependencies and prevent router-before-init runtime failures.
 
 ### Router File (`router.ts`)
 
@@ -61,14 +43,14 @@ let vowelInstance: Vowel | null = null;
 type VowelChangeListener = (client: Vowel | null) => void;
 const vowelChangeListeners = new Set<VowelChangeListener>();
 
-// ⚠️ CRITICAL: Automation adapter should be disabled by default
-// Only enable if explicitly required by the user
-const { navigationAdapter, automationAdapter } = createTanStackAdapters({
-  router: router as any,
-  enableAutomation: false  // ❌ Disabled by default - only enable if user explicitly requests it
-});
-
 function createVowelClient(appId: string): Vowel {
+  // ⚠️ CRITICAL: Create adapters inside the factory, not at module scope.
+  // This prevents "Cannot access 'router' before initialization" runtime failures.
+  const { navigationAdapter, automationAdapter } = createTanStackAdapters({
+    router: router as any,
+    enableAutomation: false  // ❌ Disabled by default - only enable if user explicitly requests it
+  });
+
   const vowel = new Vowel({
     appId: appId,
     instructions: `[See instructions section]`,
@@ -82,12 +64,23 @@ function createVowelClient(appId: string): Vowel {
       intensity: 30,
       pulse: true
     },
+    // ✅ Enable captions by default
+    // @ts-ignore - internal caption config may not be fully typed in all builds
+    _caption: {
+      enabled: true,
+      position: 'top-center',
+      maxWidth: '600px',
+      showRole: true,
+      showOnMobile: false
+    },
     voiceConfig: {
       provider: 'vowel-prime',
       vowelPrimeConfig: { environment: 'staging' },
-      model: "google/gemini-3-flash-preview",
+      llmProvider: 'groq',
+      model: "openai/gpt-oss-120b",
       voice: 'Timothy',
-      language: 'en-US'
+      language: 'en-US',
+      initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using route and context, then ask how you can help.`
     },
     onUserSpeakingChange: (isSpeaking) => {
       console.log(isSpeaking ? '🗣️ User started speaking' : '🔇 User stopped speaking');
@@ -208,7 +201,13 @@ export function createVowelClient() {
     // ❌ Automation adapter disabled by default
     // automationAdapter,
     floatingCursor: { enabled: false },
-    voiceConfig: { voice: 'Puck', vadType: 'simple' }
+    // @ts-ignore - internal caption config may not be fully typed in all builds
+    _caption: { enabled: true },
+    voiceConfig: {
+      voice: 'Puck',
+      vadType: 'simple',
+      initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
+    }
   });
 
   registerCustomActions(vowel);
@@ -280,7 +279,13 @@ export function createVowelClient() {
     // ❌ Automation adapter disabled by default
     // automationAdapter,
     floatingCursor: { enabled: false },
-    voiceConfig: { voice: 'Puck', vadType: 'simple' }
+    // @ts-ignore - internal caption config may not be fully typed in all builds
+    _caption: { enabled: true },
+    voiceConfig: {
+      voice: 'Puck',
+      vadType: 'simple',
+      initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
+    }
   });
 
   registerCustomActions(vowel);
@@ -356,7 +361,13 @@ export function createVowelClient(router: any) {
     // ❌ Automation adapter disabled by default
     // automationAdapter,
     floatingCursor: { enabled: false },
-    voiceConfig: { voice: 'Puck', vadType: 'simple' }
+    // @ts-ignore - internal caption config may not be fully typed in all builds
+    _caption: { enabled: true },
+    voiceConfig: {
+      voice: 'Puck',
+      vadType: 'simple',
+      initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
+    }
   });
 
   registerCustomActions(vowel);
@@ -392,6 +403,38 @@ function createVowelClient() {
 import { router } from './router';
 const { navigationAdapter } = createTanStackAdapters({ router: router as any });
 ```
+
+### `Cannot access 'router' before initialization` (TanStack Runtime Error)
+
+If you see an error like:
+
+```text
+vowel.client.ts:44 Uncaught ReferenceError: Cannot access 'router' before initialization
+```
+
+You have an import cycle / initialization-order issue.
+
+```typescript
+// ❌ Wrong - router is created in App/main and imported by vowel.client
+// main.tsx
+export const router = createRouter({ routeTree });
+import { setAppId } from './vowel.client'; // vowel.client imports router from main -> cycle
+
+// ✅ Correct - router is created in dedicated module
+// router.ts
+export const router = createRouter({ routeTree });
+
+// main.tsx
+import { router } from './router';
+
+// vowel.client.ts
+import { router } from './router';
+```
+
+Checklist:
+- Keep `createRouter(...)` in `router.ts` only
+- `router.ts` must not import `vowel.client.ts`
+- `vowel.client.ts` imports router from `router.ts`, not from `main.tsx`/`App.tsx`
 
 ### React Router Issues
 

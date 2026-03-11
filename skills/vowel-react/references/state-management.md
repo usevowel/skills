@@ -26,55 +26,66 @@ Complete guide to integrating Vowel with state management systems.
 
 ### Implementation
 
-Create a custom hook that uses `useSyncContext` from `@vowel.to/client/react`:
+Create a custom hook that uses `useSyncContext` from `@vowel.to/client/react`. **Also export a `buildVowelContext()` function** callable outside React for the initial context push when creating the client (see **initialization-context-ready.md**).
 
 ```typescript
-// hooks/useAppStateSync.ts
+// hooks/useAppStateSync.ts or vowel.state.ts
 import { useMemo } from 'react'
-import { useSnapshot } from 'valtio' // or your state management library
+import { useSnapshot, snapshot } from 'valtio'
+import { useRouterState } from '@tanstack/react-router'  // optional - for route in context
 import { useSyncContext } from '@vowel.to/client/react'
 import { cartStore, getCartItemCount, getCartTotal } from '@/store/cart'
 import { vehicleStore } from '@/store/vehicle'
 import { wishlistStore } from '@/store/wishlist'
+import { router } from './router'
+
+function getPathnameLabel(pathname: string): string {
+  if (pathname === '/') return 'Home'
+  if (pathname === '/products') return 'Products'
+  if (pathname === '/cart') return 'Cart'
+  return pathname
+}
+
+/**
+ * Build context object from current store state. Callable outside React
+ * (e.g. from vowel.client setAppId for initial push). When used in React,
+ * pass routeOverride from useRouterState if needed.
+ */
+export function buildVowelContext(routeOverride?: { pathname: string; pathnameLabel: string; search: string }) {
+  const cart = snapshot(cartStore)
+  const vehicle = snapshot(vehicleStore)
+  const wishlist = snapshot(wishlistStore)
+  const route = routeOverride ?? (() => {
+    const loc = router.state.location
+    return { pathname: loc.pathname, pathnameLabel: getPathnameLabel(loc.pathname), search: String(loc.search) }
+  })()
+  return {
+    route,
+    cart: { items: cart.items, itemCount: getCartItemCount(), total: getCartTotal().toFixed(2) },
+    vehicle: { selectedVehicle: vehicle.selectedVehicleId ? vehicle.vehicles[vehicle.selectedVehicleId] : null },
+    wishlist: { items: wishlist.wishlistItems, itemCount: wishlist.wishlistItems.length },
+  }
+}
 
 /**
  * Hook that syncs all app state stores to Vowel's dynamic context
  * This automatically updates context whenever any of the stores change.
  */
 export function useAppStateSync() {
-  // Get reactive snapshots of all stores
   const cart = useSnapshot(cartStore)
   const vehicle = useSnapshot(vehicleStore)
   const wishlist = useSnapshot(wishlistStore)
+  const { location } = useRouterState()
 
-  // Build context object from current store state
-  const context = useMemo(() => {
-    return {
-      cart: {
-        items: cart.items.map(item => ({
-          sku: item.sku,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-        })),
-        itemCount: getCartItemCount(),
-        total: getCartTotal().toFixed(2),
-      },
-      vehicle: {
-        selectedVehicle: vehicle.selectedVehicleId !== null
-          ? vehicle.vehicles[vehicle.selectedVehicleId]
-          : null,
-        vehicles: vehicle.vehicles,
-        vehicleCount: vehicle.vehicles.length,
-      },
-      wishlist: {
-        items: wishlist.wishlistItems,
-        itemCount: wishlist.wishlistItems.length,
-      },
-    }
-  }, [cart, vehicle, wishlist])
+  const context = useMemo(
+    () => buildVowelContext({
+      pathname: location.pathname,
+      pathnameLabel: getPathnameLabel(location.pathname),
+      search: String(location.search),
+    }),
+    [cart, vehicle, wishlist, location.pathname, location.search]
+  )
 
-  // Sync context to Vowel - automatically updates when context changes
   useSyncContext(context)
 }
 ```

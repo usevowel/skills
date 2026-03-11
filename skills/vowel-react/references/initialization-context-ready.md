@@ -8,6 +8,52 @@ Ensure the Vowel client is initialized only after app context (stores, localStor
 - **Context may not be populated on first turn** - `useSyncContext` runs inside the route tree. The session can start before the first sync. The AI needs a way to get state for the initial greeting.
 - **STT/TTS language** - `voiceConfig.language` should match the user's stored preference. Initialize the client after that preference is loaded.
 
+## Router Init Guard (TanStack)
+
+Avoid initialization-order cycles between router and client setup. If `vowel.client.ts` uses router adapters, define router in dedicated `router.ts` and import that instance in both entry and client modules.
+
+This prevents runtime failures such as:
+
+`vowel.client.ts:44 Uncaught ReferenceError: Cannot access 'router' before initialization`
+
+## Pattern 0: Demo-Proven AppIdProvider Flow (`demos/demo`)
+
+The `demos/demo` app uses an `AppIdProvider` wrapper to load/collect appId first, then calls `setAppId` from `useEffect`. `App.tsx` subscribes to client changes and passes the current client into `VowelProvider`.
+
+This prevents the common "mic button never appears" failure caused by never calling `setAppId`.
+
+```typescript
+// main.tsx
+<AppIdProvider>
+  <App />
+</AppIdProvider>
+```
+
+```typescript
+// AppIdProvider.tsx
+useEffect(() => {
+  if (appId) setAppId(appId);
+}, [appId]);
+```
+
+```typescript
+// App.tsx
+const [vowel, setVowel] = useState<VowelClientType>(getVowel());
+
+useEffect(() => {
+  const unsubscribe = subscribeToVowelChanges((newClient) => setVowel(newClient));
+  return () => unsubscribe();
+}, []);
+
+return (
+  <VowelProvider client={vowel as any}>
+    <RouterProvider router={router} />
+  </VowelProvider>
+);
+```
+
+If your app does not have an AppId dialog/provider, use Pattern 1 (`setAppId` from mount effect) plus Pattern 4 (loading gate).
+
 ## Pattern 1: Deferred Client Initialization
 
 **Do NOT call `setAppId` at module load.** Call it from `useEffect` after the App mounts so stores are populated.
@@ -119,6 +165,44 @@ function App() {
       <AppContent />  {/* Shows loading until client ready */}
     </>
   );
+}
+```
+
+### Startup Deadlock Guard
+
+This loading-gate pattern is only safe if the initializer is mounted before or outside the gate.
+
+Deadlock shape to catch in reviews and codegen:
+
+- Root/layout renders loading until `xReady`
+- The component or hook that initializes `X` only mounts after `xReady` is true
+- Result: `xReady` can never flip, so the app stays on the loading screen forever
+
+Required checks:
+
+- If rendering is gated on `vowelReady`, `setAppId` or equivalent init must run outside that gated subtree
+- Any readiness-gated dependency must initialize unconditionally on mount, not only after the ready branch renders
+- For optional integrations, wrap init in `try/catch`, log failures, and continue rendering without the integration
+- Verify hook APIs carefully so setup is not skipped due to incorrect assumptions about return values or invocation style
+
+Suggested review rule:
+
+> If a React root/layout gates rendering on X being ready, ensure the initializer for X is not mounted behind that same gate. Optional integrations must initialize before the gate or fail open instead of blocking the entire app.
+
+Fail-open example for an optional integration:
+
+```typescript
+function useVowelInit() {
+  useEffect(() => {
+    const appId = import.meta.env.VITE_VOWEL_APP_ID;
+    if (!appId) return;
+
+    try {
+      setAppId(appId);
+    } catch (error) {
+      console.error('Vowel init failed; continuing without voice integration', error);
+    }
+  }, []);
 }
 ```
 
