@@ -521,6 +521,23 @@ vowel.registerAction('addToCart', {
 
 For complete action design guidance, see **references/custom-actions.md**.
 
+## Sub-Agent / Voice Control of App Chat or AI
+
+If the app has its own programmatically controllable chat, AI interface, or LLM integration (e.g., OpenWebUI, in-app chat, headless API), the Vowel voice agent can act as a **controller** or **orchestrator**. The user speaks to Vowel; Vowel delegates to the app's chat/AI via custom actions; the response is returned and spoken back to the user.
+
+**Pattern:**
+- User: "Ask the AI to summarize this page" → Vowel calls an action that sends the prompt to the app's chat
+- App's chat/AI processes and returns a response
+- Vowel speaks the response back to the user
+
+**Implementation:**
+1. **Register custom actions** that bridge to whatever is programmatically controllable (chat send API, store method, postMessage to iframe, etc.). Choose action names that fit the app's domain (e.g., `sendToAppChat`, `askEmbeddedAI`, `queryChatModel`, `sendPromptToLLM`).
+2. **Action handler** should: send the user's request (or a derived prompt) to the app's chat/AI, wait for the response, and return it so the voice agent can speak it.
+3. **System instructions** should tell the voice agent when to delegate: e.g., "When the user says 'ask the AI', 'tell the chat', 'send a message to the model', or similar, use the [action name] to send the request and speak back the response."
+4. **State-driven**: Prefer writing to app stores or calling app APIs; avoid DOM manipulation unless the target is only controllable that way.
+
+Support any interface that can be controlled programmatically via vowel actions. The coding agent may choose appropriate action names and parameter shapes based on the app's structure.
+
 ## System Instructions Template
 
 Use this template for your system instructions:
