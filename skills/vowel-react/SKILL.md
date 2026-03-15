@@ -11,7 +11,7 @@ Initialize a vowel.to voice agent in a React application with proper navigation,
 
 **vowel** (lowercase) is a SaaS platform that adds AI-powered voice agents to web applications. The `@vowel.to/client` package provides real-time voice interaction via Gemini Live API, OpenAI Realtime API, or vowel-prime. Key capabilities: **smart navigation** (voice-controlled routing), **custom actions** (business logic via voice), and optional **page automation** (DOM interaction). For React apps, prefer state-driven custom actions over DOM automation.
 
-**Languages:** Of 99+ Whisper languages (client VAD), only those Inworld TTS can speak are supported (12: en, es, fr, de, it, pt, ko, zh, ja, nl, pl, ru). AssemblyAI (server VAD) supports 6. **VAD:** `client_vad` (default), `server_vad`, `semantic_vad`, `disabled`. **Connection paradigms:** appId, developer-managed tokens, fixed API keys, direct WebSocket, sidecar. See **references/platform-overview.md**, **references/languages-and-vad.md**, **references/connection-paradigms.md**.
+**Languages:** Of 99+ Whisper languages (client VAD), only those Inworld TTS can speak are supported (12: en, es, fr, de, it, pt, ko, zh, ja, nl, pl, ru). AssemblyAI (server VAD) supports 6. **VAD:** `client_vad` (default), `server_vad`, `semantic_vad`, `disabled`. **Connection models:** hosted `appId` flow or token-based flow, with advanced recipes such as sidecar and trusted server connections layered on top. See **references/platform-overview.md**, **references/languages-and-vad.md**, **references/connection-paradigms.md**.
 
 ## Overview
 
@@ -19,10 +19,90 @@ This skill provides complete guidance for integrating vowel.to voice agents into
 
 - Installation and client setup for all major React routers
 - Navigation adapter configuration (TanStack Router, Next.js, React Router, custom)
+- Migration patterns for the `0.2.0` public API cleanup
 - **Context-ready initialization** - ensure stores are loaded before client init, push initial context
 - State management integration with automatic context syncing
 - Custom action design and registration
 - Voice UI components and configuration
+
+## 0.2.0 Migration Patterns
+
+Use these patterns when updating a React integration to the stabilized `0.2.0` client surface.
+
+### Prefer helper factories over legacy router adapters
+
+For TanStack Router, React Router, and Next.js, migrate to the helper/factory APIs instead of legacy `router` adapter helpers.
+
+- Use `createTanStackAdapters(...)`
+- Use `createReactRouterAdapters(...)`
+- Use `createNextJSAdapters(...)`
+- Keep the returned `navigationAdapter`
+- Leave `automationAdapter` disabled unless the user explicitly asks for DOM automation
+
+Do not generate or recommend:
+
+- `tanstackRouterAdapter(...)`
+- `tanstackRouterHookAdapter(...)`
+- `router:` as the primary integration shape for new code
+
+### Treat `router` as legacy compatibility only
+
+If an existing app still passes `router`, keep it only as a migration bridge. For new code, prefer:
+
+```typescript
+const { navigationAdapter } = createTanStackAdapters({
+  router,
+  enableAutomation: false,
+});
+
+const vowel = new Vowel({
+  appId,
+  navigationAdapter,
+});
+```
+
+### Keep automation opt-in
+
+`0.2.0` keeps the dual-adapter model, but automation should stay off by default for React apps.
+
+- default: `navigationAdapter` only
+- opt-in: add `automationAdapter` only when the user explicitly wants voice-driven page interaction
+
+### Keep internal managers and low-level classes out of generated guidance
+
+Do not recommend direct imports of internal managers or low-level adapter classes from the root package in new examples.
+
+Prefer:
+
+- `Vowel`
+- helper/factory functions
+- React components and hooks
+- typed actions and app-store integration
+
+Avoid teaching:
+
+- root-level manager imports
+- deprecated banner components
+- low-level adapter classes when a factory covers the use case
+
+### Connection guidance for 0.2.0
+
+For new guidance, present the client as having two top-level connection models:
+
+1. `appId` hosted/platform flow
+2. token-based flow (`tokenProvider` or pre-issued token)
+
+Treat sidecar and trusted server as advanced recipes, not primary client setup modes.
+
+### Migration framing
+
+When modernizing an existing integration, preserve behavior first, then move toward the stabilized surface:
+
+1. Replace legacy router adapters with helper factories
+2. Move from `router` to `navigationAdapter`
+3. Keep automation disabled unless explicitly required
+4. Avoid introducing deprecated exports in new code
+5. Prefer the two-model connection framing in all new explanations
 
 ## Core Principles
 
