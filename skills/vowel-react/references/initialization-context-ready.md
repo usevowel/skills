@@ -303,3 +303,6 @@ function RootComponent() {
 - [ ] Sync listener immediately on subscribe if client already exists
 - [ ] Recreate client when language/userName changes (if they affect voice config)
 - [ ] Mount VowelStateSync inside root route (inside RouterProvider + VowelProvider)
+- [ ] **Next.js:** Client-visible `appId` uses **`NEXT_PUBLIC_VOWEL_APP_ID`** (not `VOWEL_APP_ID` alone for browser code)
+- [ ] **Next.js / React:** Pass the Vowel instance into `VowelProvider` via **`useState`** (and subscription or init callback), not only a module-level variable updated in a nested `useEffect`
+- [ ] **Next.js:** Use **`import { Vowel } from '@vowel.to/client'`** unless you deliberately load the standalone **`vowel-voice-widget`** script and **`public/vowel/`** assets

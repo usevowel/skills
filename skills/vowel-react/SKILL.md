@@ -1,6 +1,6 @@
 ---
 name: vowel-react
-description: Initialize vowel.to voice agent in React applications (React, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getGameState fallback). The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
+description: Initialize vowel.to voice agent in React applications (React, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getGameState fallback). Next.js notes include NEXT_PUBLIC_VOWEL_APP_ID (not VOWEL_APP_ID alone), no frontend vkey_* for standard appId flow, import new Vowel from @vowel.to/client (not window.Vowel without the standalone bundle), and keeping VowelProvider client in React state. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
 ---
 
 # Vowel React Integration
@@ -175,6 +175,26 @@ For TanStack Router integrations, keep router creation in a dedicated `router.ts
 7. For optional integrations, prefer fail-open behavior: log init failure and continue rendering the app instead of blocking the entire root/layout
 
 For complete patterns, see **references/initialization-context-ready.md**.
+
+### ⚠️ CRITICAL: Next.js — Public env vars and API keys
+
+**App ID in the browser:** Next.js only inlines **`NEXT_PUBLIC_*`** variables into the client bundle. Use **`NEXT_PUBLIC_VOWEL_APP_ID`**, not **`VOWEL_APP_ID` alone**. A non-public name is **empty in client code**, so `appId` is missing in the browser, **`VowelAppWrapper` exits early** (empty-`appId` guard), and **`VowelProvider` / `VowelAgent` never wrap** — same behavior as in client wrapper code before any app-specific edits.
+
+**API keys (`vkey_*`):** For the usual **platform-managed `appId` flow**, this skill does **not** put a long-lived API key in the frontend; those keys are **server-only**. Putting a key in `.env` does **not** fix a missing mic in the standard setup unless you intentionally use another paradigm (for example **backend-minted tokens**).
+
+### ⚠️ CRITICAL: Next.js — Use the npm client, not `window.Vowel` without the standalone bundle
+
+The supported pattern is **`import { Vowel, createNextJSAdapters } from '@vowel.to/client'`** and **`new Vowel({ ... })`**.
+
+If generated or hand-written code uses **`new (window as any).Vowel`**, the layout must **load the standalone script** (for example **`/vowel/vowel-voice-widget.min.js`**) and ship assets under **`public/vowel/`**. If that script is never loaded and **`public/vowel/`** is absent, **`window.Vowel` is undefined**, initialization aborts (for example **"Vowel SDK not loaded"**), and the mic never appears. Prefer the **package import** so bundling supplies the SDK.
+
+### ⚠️ CRITICAL: Next.js / React — `VowelProvider` must get a React-updated `client`
+
+Storing the instance in a **module-level variable** set from a **child `useEffect`** does **not** re-render the parent that renders **`VowelProvider`**, so **`client` can stay `null`** forever even after init succeeds.
+
+Use **`useState`** for the client and **`subscribeToVowelChanges`** (or set state when init completes in the **same** component subtree as `VowelProvider`), matching the **TanStack Quick Start** pattern in this skill.
+
+Under **React Strict Mode**, a one-shot **`initialized` flag** can block the second mount and leave the client unset; prefer **idempotent init** or **state-driven readiness** instead of a sticky boolean that prevents re-running setup.
 
 ### ⚠️ CRITICAL: Startup Deadlock Guard
 
@@ -719,7 +739,7 @@ If you cannot accomplish a task through state management actions, you may use DO
 Add to your `.env.local` (Next.js) or `.env` (Vite/CRA):
 
 ```bash
-# Next.js (requires NEXT_PUBLIC_ prefix)
+# Next.js (requires NEXT_PUBLIC_ prefix — see "Next.js — Public env vars" above)
 NEXT_PUBLIC_VOWEL_APP_ID=your-app-id-from-vowel-platform
 
 # Vite (requires VITE_ prefix)
@@ -728,6 +748,8 @@ VITE_VOWEL_APP_ID=your-app-id-from-vowel-platform
 # Create React App (requires REACT_APP_ prefix)
 REACT_APP_VOWEL_APP_ID=your-app-id-from-vowel-platform
 ```
+
+**Next.js:** `VOWEL_APP_ID` without `NEXT_PUBLIC_` is fine for **server-only** code but is **not** visible to client components or inlined bundle code; the voice UI will not receive an `appId` unless you use `NEXT_PUBLIC_VOWEL_APP_ID` (or another supported client-visible mechanism).
 
 ## Using Vowel in Components
 
@@ -820,6 +842,10 @@ import { VowelMicrophone } from '@vowel.to/client/react';
 7. **Microphone not working**
    - Ensure HTTPS (localhost works without HTTPS)
    - Check browser permissions for microphone access
+   - **Next.js:** Confirm **`NEXT_PUBLIC_VOWEL_APP_ID`** is set (not only `VOWEL_APP_ID`); empty client `appId` prevents wrapper/provider/agent from mounting
+   - **Next.js:** If using **`window.Vowel`**, confirm the **standalone script** is loaded and **`public/vowel/`** exists; otherwise use **`import { Vowel } from '@vowel.to/client'`**
+   - **Next.js / React:** If the client initializes in a child but **`VowelProvider` stays `client={null}`**, lift client into **`useState`** and update via **subscription or callback** in the same tree as `VowelProvider` (see TanStack Quick Start). Do not rely on module-level mutation alone
+   - Do not assume a **`vkey_*`** in `.env` fixes the mic under the standard **`appId`** flow (server-only; different token paradigms are separate)
 
 ## Key Features
 

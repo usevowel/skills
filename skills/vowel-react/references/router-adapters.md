@@ -176,6 +176,16 @@ export const Route = createRootRoute({
 
 ## Next.js Setup
 
+### Pitfalls (common after vowelbot or hand-rolled integrations)
+
+1. **Env:** Use **`NEXT_PUBLIC_VOWEL_APP_ID`** for any client-side `appId`. **`VOWEL_APP_ID` alone** is not inlined into the browser bundle, so the client sees an empty `appId`, **`VowelAppWrapper` bails out**, and **`VowelProvider` / `VowelAgent` never mount**. See **SKILL.md** → *Next.js — Public env vars and API keys*.
+
+2. **API keys:** Standard **platform `appId` flow** does not use a long-lived **`vkey_*`** in the frontend (server-only). Adding one to `.env` does not fix a missing mic unless you use a different connection model (for example backend tokens).
+
+3. **`window.Vowel`:** The skill expects **`import { Vowel, createNextJSAdapters } from '@vowel.to/client'`** and **`new Vowel(...)`**. Code that does **`new window.Vowel`** must load the standalone script (for example **`/vowel/vowel-voice-widget.min.js`**) and **`public/vowel/`** assets; otherwise **`window.Vowel` is undefined** and init fails with **"Vowel SDK not loaded"**.
+
+4. **`VowelProvider client`:** The instance must be held in **React state** (or otherwise trigger a re-render) in the **same** tree as `VowelProvider`. A **module-level** client set only in a **child `useEffect`** leaves **`client={null}`** on the parent. Under **Strict Mode**, avoid a sticky **`initialized` flag** that blocks the second mount.
+
 ### Vowel Client (`vowel.client.ts`)
 
 ```typescript
@@ -463,3 +473,9 @@ import { useRouter } from 'next/router'; // Pages Router (old)
 // ✅ Correct - App Router import
 import { useRouter } from 'next/navigation'; // App Router (new)
 ```
+
+**Env and bundle:** Client code must read **`process.env.NEXT_PUBLIC_VOWEL_APP_ID`**. Using **`VOWEL_APP_ID`** only in `.env` leaves the browser **`appId` empty** and prevents the voice wrapper from mounting.
+
+**Instantiation:** Prefer **`new Vowel`** from **`@vowel.to/client`**. **`window.Vowel`** requires the standalone widget script and **`public/vowel/`**; missing script → **"Vowel SDK not loaded"**.
+
+**Provider state:** Match the TanStack pattern in **SKILL.md**: **`useState` + `subscribeToVowelChanges`** (or set state where `VowelProvider` lives) so `client` updates after async init.
