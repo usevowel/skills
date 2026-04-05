@@ -2,6 +2,16 @@
 
 Use this file only to decide which platform guide to open.
 
+All supported platform guides should preserve the same branded VowelDocs product pattern:
+
+- same VowelDocs branding
+- same credential modal/storage behavior, especially the recognizable input-box/modal style
+- same high-quality docs tools
+- same canonical-route discipline
+- same runtime defaults unless a framework guide explicitly calls out an unavoidable difference
+
+Do not assume Astro-specific fixes belong everywhere. Framework guides should only adopt the workarounds required by that framework.
+
 If the framework is already known to be Astro/Starlight, skip this file and open [astro.md](./astro.md) directly.
 
 ## Preferred Path
@@ -21,7 +31,7 @@ It is intentionally self-contained so the separate `vowel-react` skill is not re
 ## Other Platform Guides
 
 - [vitepress.md](./vitepress.md)
-  Use only for VitePress/Vue documentation sites.
+  Use only for VitePress/Vue documentation sites. Preserve the branded VowelDocs modal/input style and shared product feel, but do not port Astro-specific persistence/navigation hacks into VitePress unless VitePress actually needs them.
 
 ## Unsupported Or Constrained Platforms
 
