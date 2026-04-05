@@ -7,7 +7,7 @@ description: Add the branded VowelDocs voice-agent paradigm to supported documen
 
 Use this skill when the task is "add or maintain Vowel inside a documentation site."
 
-For Astro/Starlight, this skill is self-contained. Do not require the separate `vowel-react` skill for Astro docs work. Load [platform/astro.md](./platform/astro.md) first.
+For Astro/Starlight, this skill is self-contained. Do not require the separate `vowel-react` skill for Astro docs work. Load [platform/astro/astro.md](./platform/astro/astro.md) first.
 
 The goal is not a generic voice widget. The goal is to recreate the same VowelDocs-branded docs agent pattern used in this repo:
 
@@ -21,12 +21,12 @@ Treat this skill as the packaged VowelDocs product spec for supported documentat
 
 Framework note:
 
-- Astro/Starlight should adopt the full set of Astro-specific persistence, navigation, audio, and lifecycle workarounds described in [platform/astro.md](./platform/astro.md).
+- Astro/Starlight should adopt the full set of Astro-specific persistence, navigation, audio, and lifecycle workarounds described in [platform/astro/astro.md](./platform/astro/astro.md).
 - VitePress should keep its existing lighter-weight platform approach unless a real VitePress-specific issue requires more. Preserve the shared VowelDocs branding and credential-modal style, but do not import Astro-only quirks into VitePress by default.
 
 ## Load Order
 
-1. If the docs framework is already known to be Astro or Starlight, read [platform/astro.md](./platform/astro.md) immediately.
+1. If the docs framework is already known to be Astro or Starlight, read [platform/astro/astro.md](./platform/astro/astro.md) immediately.
 2. If the framework is not yet known, read [platform/index.md](./platform/index.md) to choose the correct platform guide.
 3. Only read [platform/vitepress.md](./platform/vitepress.md) if the docs site is VitePress.
 4. Read [exclusions.md](./exclusions.md) only when evaluating unsupported/static-only frameworks.
@@ -54,7 +54,7 @@ For Astro/Starlight:
 - Resume playback after Astro swaps/page loads if transcripts continue but audio goes silent.
 - Recreate the `voweldocs` header button and config modal exactly from the canonical implementation in `src/components/voweldocs/voice-widget-init.ts`.
 
-All implementation details, file responsibilities, and maintenance steps live in [platform/astro.md](./platform/astro.md).
+All implementation details, file responsibilities, the shipped source files, and maintenance steps live in [platform/astro/astro.md](./platform/astro/astro.md).
 
 ## Route Map Regeneration Rule
 
@@ -66,7 +66,7 @@ Every time you change any of the following, regenerate the docs route map logic 
 - `site` origin in Astro config
 - route-generation code
 
-Then run the relevant build commands from [platform/astro.md](./platform/astro.md).
+Then run the relevant build commands from [platform/astro/astro.md](./platform/astro/astro.md).
 
 ## Reusable Slash Command Prompt
 

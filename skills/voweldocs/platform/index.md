@@ -12,11 +12,11 @@ All supported platform guides should preserve the same branded VowelDocs product
 
 Do not assume Astro-specific fixes belong everywhere. Framework guides should only adopt the workarounds required by that framework.
 
-If the framework is already known to be Astro/Starlight, skip this file and open [astro.md](./astro.md) directly.
+If the framework is already known to be Astro/Starlight, skip this file and open [astro/astro.md](./astro/astro.md) directly.
 
 ## Preferred Path
 
-For Astro documentation sites, especially Starlight, load [astro.md](./astro.md) immediately.
+For Astro documentation sites, especially Starlight, load [astro/astro.md](./astro/astro.md) immediately.
 
 That file contains:
 
@@ -26,7 +26,7 @@ That file contains:
 - audio survival strategy
 - linked Vowel client rebuild workflow
 
-It is intentionally self-contained so the separate `vowel-react` skill is not required for Astro docs work.
+It is intentionally self-contained so the separate `vowel-react` skill is not required for Astro docs work, and it ships exact reference files under [astro/files](./astro/files).
 
 ## Other Platform Guides
 
@@ -39,6 +39,6 @@ If the docs framework is mostly static HTML with weak client-side runtime suppor
 
 ## Quick Decision Rule
 
-- Astro/Starlight -> [astro.md](./astro.md)
+- Astro/Starlight -> [astro/astro.md](./astro/astro.md)
 - VitePress -> [vitepress.md](./vitepress.md)
 - static HTML generator or unclear fit -> [../exclusions.md](../exclusions.md)

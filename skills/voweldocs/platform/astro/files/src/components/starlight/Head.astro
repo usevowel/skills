@@ -1,0 +1,61 @@
+---
+// Skill reference copy for the packaged Astro/Starlight VowelDocs integration.
+// Copy this file into the target project's shared Starlight head component.
+// Preserve:
+// - ClientRouter
+// - the `voweldocs-use-jwt` meta bridge
+// - the Vowel UI isolation CSS
+// - the entrypoint import of `../voweldocs/voweldocs-entry`
+// Adapt only project-specific head content if needed.
+
+import { ClientRouter } from 'astro:transitions';
+
+const { head } = Astro.locals.starlightRoute;
+const publicVowelUseJwt = import.meta.env.PUBLIC_VOWEL_USE_JWT ?? 'true';
+---
+
+{head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+<ClientRouter />
+
+<meta name="voweldocs-use-jwt" content={publicVowelUseJwt} />
+
+<style is:inline>
+  /* Isolate Vowel UI from Starlight's global reset and typography. */
+  .vowel-ui,
+  .vowel-ui *,
+  .vowel-ui::before,
+  .vowel-ui::after,
+  .vowel-ui *::before,
+  .vowel-ui *::after {
+    box-sizing: border-box;
+  }
+
+  .vowel-ui {
+    line-height: 1;
+  }
+
+  .vowel-ui button,
+  .vowel-ui [role='button'] {
+    font: inherit;
+    line-height: 1;
+  }
+
+  .vowel-ui svg {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .vowel-ui.fixed,
+  .vowel-ui .vowel-settings-button,
+  #vowel-border-glow {
+    z-index: 2147483646 !important;
+  }
+
+  .vowel-ui[role='status'] {
+    z-index: 2147483647 !important;
+  }
+</style>
+
+<script>
+  import '../voweldocs/voweldocs-entry';
+</script>
