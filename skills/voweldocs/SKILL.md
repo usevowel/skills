@@ -1,6 +1,6 @@
 ---
 name: voweldocs
-description: Add voice-powered AI navigation to documentation sites using vowel.to. Use when integrating voice agents into VitePress, Docusaurus, or custom documentation sites with automated route detection and docs-specific actions.
+description: Pattern for adding voice-powered AI navigation to documentation sites using vowel.to. This skill demonstrates VitePress/Vue integration; for React, vanilla JS, or web component approaches, see the appropriate Vowel client skill.
 ---
 
 # voweldocs - Voice Agent for Documentation Sites
@@ -11,15 +11,21 @@ Add a voice AI agent to documentation sites, enabling users to navigate, search,
 
 Use voweldocs when:
 
-- Building a documentation site with VitePress, Docusaurus, Nextra, VuePress, Docsify, Starlight, or custom setup
+- You want to understand the pattern for voice-enabling documentation sites
 - You want users to navigate pages via voice ("Go to installation guide")
 - You want voice-controlled search ("Find the adapter documentation")
 - You want to interact with page elements via voice ("Copy the first code example")
 - You need automated route detection from markdown files
 
+> **Note on Implementation**: This skill provides a **complete VitePress/Vue implementation** as a concrete example. For other documentation frameworks, use the corresponding Vowel client skill:
+> - **React (Docusaurus, Nextra)** → See `vowel-react` skill
+> - **Astro (Starlight)** → See `vowel-webcomponent` skill
+> - **Python/Rust/Go (MkDocs, Sphinx, mdBook, Hugo)** → See `vowel-webcomponent` skill (web component injection)
+> - **Vanilla JS (Docsify, custom)** → See `vowel-vanilla` or `vowel-webcomponent` skill
+
 ## Prerequisites
 
-- A documentation site (VitePress, Docusaurus, Nextra, VuePress, Docsify, Starlight, or custom)
+- A documentation site (any static site generator that outputs HTML)
 - A vowel.to account or self-hosted vowel stack
 - Basic familiarity with Vowel client concepts
 
@@ -1539,28 +1545,70 @@ When using self-hosted mode with JWT, the realtime URL is resolved in this order
 | URL not detected from JWT | Verify JWT contains `url`, `endpoint`, or `rtu` claim |
 | Microphone access denied | Requires HTTPS outside localhost |
 
-## References
+## Framework Compatibility
 
 Choose the appropriate Vowel client skill based on your documentation framework:
 
-| Doc Framework | Skill to Use | Notes |
-|--------------|--------------|-------|
-| **React-based** ||
-| Docusaurus | `vowel-react` | Facebook-backed, React/MDX native integration |
-| Nextra | `vowel-react` | Next.js-based, excellent React/TS support |
-| **Vue-based** ||
-| VitePress | `vowel-webcomponent` | Vite + Vue powered, use web component |
-| VuePress | `vowel-webcomponent` | Vue-powered, use web component integration |
-| **JavaScript-based** ||
-| Docsify | `vowel-webcomponent` | Runtime rendering, inject web component script |
-| **Astro-based** ||
-| Starlight | `vowel-webcomponent` | Multi-framework Astro docs, web component compatible |
-| **Other/Custom** ||
-| Vanilla JS/Custom | `vowel-vanilla` | For non-framework docs or plain HTML |
-| Any (Drop-in) | `vowel-webcomponent` | Framework-agnostic widget approach |
+| Doc Framework | Language | Skill to Use | Notes |
+|--------------|----------|--------------|-------|
+| **React-based** |||
+| Docusaurus | React/MDX | `vowel-react` | Facebook-backed, excellent for large/open-source projects |
+| Nextra | Next.js/React | `vowel-react` | Next.js-based, great for React/TS teams |
+| **Vue-based** |||
+| VitePress | Vue/Vite | `vowel-webcomponent` | **This skill provides complete VitePress implementation** |
+| VuePress | Vue | `vowel-webcomponent` | Classic Vue documentation generator |
+| **JavaScript-based** |||
+| Docsify | Vanilla JS | `vowel-vanilla` or `vowel-webcomponent` | Runtime rendering, inject via script tag |
+| **Astro-based** |||
+| Starlight | Astro | `vowel-webcomponent` | Multi-framework, native web component support |
+| **Python-based** (via web component) |||
+| MkDocs + Material | Python | `vowel-webcomponent` | Inject via `extra_javascript` in `mkdocs.yml` |
+| Sphinx | Python | `vowel-webcomponent` | Add to `html_js_files` in `conf.py` |
+| **Go-based** (via web component) |||
+| Hugo | Go/Templates | `vowel-webcomponent` | Add script to base template or page footers |
+| **Rust-based** (via web component) |||
+| mdBook | Rust | `vowel-webcomponent` | Add via `additional-js` in `book.toml` |
+| **Other/Custom** |||
+| Vanilla JS/Custom | Any | `vowel-vanilla` | Plain HTML/JS documentation sites |
+| Any Static Site | Any | `vowel-webcomponent` | Drop-in widget for any HTML output |
+
+### Non-JS Framework Integration
+
+All static site generators output HTML, so they can use the `vowel-webcomponent` skill:
+
+**Python (MkDocs/Sphinx)**:
+Add to your `mkdocs.yml` or `conf.py`:
+```yaml
+# mkdocs.yml (Material theme)
+extra_javascript:
+  - https://unpkg.com/@vowel.to/webcomponent@latest/dist/vowel-voice-widget.js
+  - js/vowel-init.js  # Your initialization script
+```
+
+```python
+# conf.py (Sphinx)
+html_js_files = [
+    'https://unpkg.com/@vowel.to/webcomponent@latest/dist/vowel-voice-widget.js',
+    'vowel-init.js',
+]
+```
+
+**Rust (mdBook)**:
+```toml
+# book.toml
+[output.html]
+additional-js = ["https://unpkg.com/@vowel.to/webcomponent@latest/dist/vowel-voice-widget.js", "vowel-init.js"]
+```
+
+**Go (Hugo)**:
+Add to your base template (`layouts/partials/head.html` or `layouts/partials/footer.html`):
+```html
+<script src="https://unpkg.com/@vowel.to/webcomponent@latest/dist/vowel-voice-widget.js"></script>
+```
+
+## References
 
 - See `vowel-react` skill for React-based documentation sites (Docusaurus, Nextra)
-- See `vowel-vanilla` skill for vanilla JavaScript or custom documentation setups
-- See `vowel-webcomponent` skill for Vue-based (VitePress, VuePress), Astro-based (Starlight), or JavaScript-based (Docsify) documentation
-- See [exclusions.md](./exclusions.md) for frameworks not natively supported (MkDocs, Sphinx, mdBook, Hugo) and potential workarounds
+- See `vowel-vanilla` skill for vanilla JavaScript or Docsify setups  
+- See `vowel-webcomponent` skill for Vue-based (VitePress, VuePress), Astro-based (Starlight), or any static site generator (MkDocs, Sphinx, mdBook, Hugo) via web component injection
 - Visit [vowel.to](https://vowel.to) for hosted platform setup
