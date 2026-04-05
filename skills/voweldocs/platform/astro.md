@@ -60,6 +60,14 @@ These file names can vary, but the responsibilities should stay the same:
 - `src/components/voweldocs/voice-widget-init.ts`
   Build config, route map, context, navigation adapter inputs, page-transition hooks, and the canonical header button plus credential modal.
 
+For the packaged VowelDocs Astro pattern, prefer keeping this exact file split rather than redistributing responsibilities arbitrarily:
+
+- `voweldocs-entry.ts` should stay minimal and bootstrap the initializer
+- `voice-widget-init.ts` should contain the real docs bootstrap/config/modal/route-map logic
+- `voice-agent-react.tsx` should only own the React/Vowel runtime layer
+
+If `voweldocs-entry.ts` starts absorbing modal logic, route generation, and Astro event wiring directly, treat that as drift from the canonical implementation and do a second pass.
+
 ## Required Config UI Pattern
 
 Every docs integration must include the `voweldocs` header button and credential modal, even outside Astro.
@@ -249,6 +257,8 @@ Do not use:
 - synthetic anchor clicks
 - custom search actions for route discovery
 
+Also do not invent Vowel navigation/runtime APIs. Mirror the imports and shapes used by the canonical integration instead of creating helpers based on guesswork.
+
 ## React Runtime Pattern
 
 The Vowel React runtime should behave like a portal mount:
@@ -268,6 +278,13 @@ For an exact reconstruction of this repo, keep these UI/runtime choices:
 - store the singleton runtime on `window.__voweldocsVoiceAgent`
 - only recreate the Vowel client when the serialized credentials/config key changes
 - otherwise call `client.updateContext(...)` in place
+
+Import discipline matters here:
+
+- construct the client with `new Vowel(...)`
+- import `Vowel` from `@vowel.to/client`
+- import `VowelProvider` and `VowelAgent` from `@vowel.to/client/react`
+- do not substitute unverified helpers like `createVowelClient`, `defaultAdapter`, or custom `RouteMap` types unless they are confirmed to exist in the installed package
 
 ## Exact Voice Defaults
 
@@ -389,6 +406,11 @@ Mirror the repo’s initialization flow:
 
 For debugging parity with this repo, it is also reasonable to expose a small `window.voweldocs` helper with methods like `getConfig`, `reinitialize`, `cleanup`, and `openConfig`.
 
+Event bus discipline matters too:
+
+- the canonical integration listens with `window.addEventListener(...)` for `voweldocs:config-saved` and `voweldocs:config-cleared`
+- dispatch those events on `window`, not `document`, unless the whole implementation is consistently built around document-level listeners
+
 ## Rebuild Rule
 
 If you change the linked Vowel client source:
@@ -439,3 +461,38 @@ Before calling the work done, verify:
 - self-hosted mode shows the correct JWT or App ID + URL fields based on `PUBLIC_VOWEL_USE_JWT`
 - the Vowel widget renders with the intended placement and without Starlight CSS corruption
 - the reconstructed agent still matches this repo’s branded VowelDocs experience rather than a generic integration
+
+## Required Second Pass
+
+Before finishing an Astro/Starlight VowelDocs integration, do a mandatory second pass and explicitly verify all of the following:
+
+1. File graph:
+   - `src/components/voweldocs/voweldocs-entry.ts` exists
+   - `src/components/voweldocs/voice-widget-init.ts` exists
+   - `src/components/voweldocs/voice-agent-react.tsx` exists
+   - `src/components/starlight/Head.astro` exists
+   - `src/components/starlight/PageFrame.astro` exists
+2. Entry-point shape:
+   - `voweldocs-entry.ts` does not import missing files
+   - `voweldocs-entry.ts` stays minimal and does not become an ad hoc replacement for `voice-widget-init.ts`
+3. Vowel API imports:
+   - no invented client helpers are being imported
+   - React UI imports come from `@vowel.to/client/react`
+4. Build verification:
+   - run the docs build
+   - confirm there are no unresolved imports from the VowelDocs files
+5. Runtime verification:
+   - the `voweldocs` header button actually appears
+   - clicking it opens the branded credential modal
+   - saving config updates the button state
+6. Route verification:
+   - the route map is non-empty
+   - generated routes are canonical and never include `/content/docs/`
+7. Event verification:
+   - config save/clear events are dispatched and observed on the intended target
+8. Astro verification:
+   - the persistent host exists in the layout
+   - `ClientRouter` is present
+   - `astro:page-load` and `astro:after-swap` hooks are wired
+
+Do not stop after code generation alone. If any item above cannot be verified, treat the integration as incomplete and continue the pass.
