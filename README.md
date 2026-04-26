@@ -1,6 +1,6 @@
 # vowel skills
 
-Public [agent skill](https://grokipedia.com/page/Claude_Skills) repository for [vowel](https:vowel.to) integration workflows.
+Public [agent skill](https://grokipedia.com/page/Claude_Skills) repository for [vowel](https://vowel.to) integration workflows.
 
 These skills are used by [OpenCode](https://opencode.ai/) in [vowelbot](https://vowel.to/vowelbot) github action to automagically enable vowel intelligent conversational voice in new and existing web apps. 
 

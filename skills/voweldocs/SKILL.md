@@ -61,9 +61,9 @@ Before setup, determine your credential source:
 ```mermaid
 flowchart TD
     A[Where do I get my credentials from?] --> B{Are you using<br/>hosted SaaS or<br/>self-hosted?}
-    B -->|Hosted SaaS| C[Get appId from<br/>vowel.to dashboard]
+    B -->|Hosted SaaS| C[Get apiKey or legacy app id<br/>from vowel.to dashboard]
     B -->|Self-Hosted<br/>JWT Mode| D[Get JWT from<br/>environment variable<br/>or token service]
-    B -->|Self-Hosted<br/>AppId+URL| E[Need both:<br/>- appId<br/>- realtime URL]
+    B -->|Self-Hosted<br/>AppId+URL| E[Need both:<br/>- token issuer id<br/>- realtime URL]
 
     C --> C1[URL is auto-set to<br/>wss://realtime.vowel.to/v1]
     D --> D1[URL is embedded in<br/>JWT payload<br/>url / endpoint / rtu claim]
@@ -74,9 +74,9 @@ flowchart TD
 
 | Mode | Required | Source | URL Source |
 |------|----------|--------|------------|
-| Hosted | `appId` | vowel.to dashboard | Hardcoded: `wss://realtime.vowel.to/v1` |
+| Hosted | `apiKey` or legacy `appId` | vowel.to dashboard (publishable key or legacy id) | Hardcoded: `wss://realtime.vowel.to/v1` |
 | Self-hosted (JWT) | `jwt` | Token service or env var | Extracted from JWT payload (`url`/`endpoint`/`rtu` claim) |
-| Self-hosted (Manual) | `appId` + `url` | Core configuration | Environment variable or config UI |
+| Self-hosted (Manual) | Token issuer id + `url` | Core configuration | Environment variable or config UI |
 
 ## URL Resolution Priority
 

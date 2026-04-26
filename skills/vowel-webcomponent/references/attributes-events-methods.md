@@ -2,7 +2,7 @@
 
 ## Common Attributes
 
-- `app-id` (required): Vowel app ID.
+- `app-id` (required): **Token issuer identifier** for the widget—same as client `apiKey` / `appId`: a **legacy hosted app id** or a **publishable API key** (`vkey_*`), depending on your integration.
 - `position`: `bottom-right`, `bottom-left`, `top-right`, `top-left`.
 - `preset`: `vanilla` (default) or `controlled`.
 - `show-transcripts`: boolean.

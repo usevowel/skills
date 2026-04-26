@@ -11,18 +11,20 @@ Vowel uses two top-level client connection models, with a few advanced recipes l
 | **Sidecar pattern** | Shared browser + backend session | One token source, shared session identity |
 | **Trusted server connections** | Backend automation and orchestration | Backend-held credentials or brokered token |
 
-## Top-Level Model 1: Hosted `appId` Flow
+## Top-Level Model 1: Hosted token-issuer identifier (`apiKey` / `appId`)
 
-Standard pattern for most React apps:
+Standard pattern for most React apps. Prefer **`apiKey`**; **`appId`** is a legacy alias for the same field.
 
 ```typescript
 const vowel = new Vowel({
-  appId: 'your-app-id',
-  // Platform handles token generation
+  apiKey: 'vkey_public_xxx', // or legacy hosted app id string
+  // Platform handles short-lived session token generation
 });
 ```
 
-The client requests a short-lived token from the hosted platform. This is the managed path.
+The value may be a **publishable key** (`vkey_*`) or a **legacy app identifier** from the dashboard— the client resolves it before calling the token issuer. Optional **`convexUrl`** / **`tokenEndpoint`** override where that minting request goes (self-hosted or non-default Convex deployments).
+
+This is the default managed path when the browser is allowed to hold the publishable identifier.
 
 ## Top-Level Model 2: Token-Based Flow
 
@@ -76,8 +78,8 @@ Rules:
 
 ## When to Use Which
 
-- **Hosted `appId` flow**: Managed platform setup once the hosted path is available for your use case.
-- **Token-based flow**: Current recommended path for self-hosted or backend-controlled integrations.
+- **Hosted `apiKey` / `appId` flow**: Managed platform setup when the browser may hold the publishable identifier or legacy app id.
+- **Token-based flow**: Preferred when your backend must gate every session (`tokenProvider`, pre-issued token, or self-hosted Core patterns).
 - **Sidecar**: Shared browser + backend session with distinct tool responsibilities.
 - **Trusted server**: Backend-only orchestration or automation.
 
