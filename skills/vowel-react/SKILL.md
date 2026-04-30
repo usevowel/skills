@@ -1,6 +1,6 @@
 ---
 name: vowel-react
-description: Initialize vowel.to voice agent in React applications (React, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getGameState fallback). Next.js notes include NEXT_PUBLIC_VOWEL_APP_ID (not VOWEL_APP_ID alone), no frontend vkey_* for standard appId flow, import new Vowel from @vowel.to/client (not window.Vowel without the standalone bundle), and keeping VowelProvider client in React state. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
+description: Initialize vowel.to voice agent in React applications (React 19+, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getGameState fallback), apiKey-first token issuer identifiers (appId is a legacy alias), and optional convexUrl/tokenEndpoint overrides. Next.js notes include NEXT_PUBLIC_VOWEL_APP_ID (not VOWEL_APP_ID alone), import { Vowel } from @vowel.to/client (not window.Vowel without the standalone bundle), and keeping VowelProvider client in React state. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
 ---
 
 # Vowel React Integration
@@ -11,7 +11,7 @@ Initialize a vowel.to voice agent in a React application with proper navigation,
 
 **vowel** (lowercase) is a SaaS platform that adds AI-powered voice agents to web applications. The `@vowel.to/client` package provides real-time voice interaction via Gemini Live API, OpenAI Realtime API, or vowel-prime. Key capabilities: **smart navigation** (voice-controlled routing), **custom actions** (business logic via voice), and optional **page automation** (DOM interaction). For React apps, prefer state-driven custom actions over DOM automation.
 
-**Languages:** Of 99+ Whisper languages (client VAD), only those Inworld TTS can speak are supported (12: en, es, fr, de, it, pt, ko, zh, ja, nl, pl, ru). AssemblyAI (server VAD) supports 6. **VAD:** `client_vad` (default), `server_vad`, `semantic_vad`, `disabled`. **Connection models:** hosted `appId` flow or token-based flow, with advanced recipes such as sidecar and trusted server connections layered on top. See **references/platform-overview.md**, **references/languages-and-vad.md**, **references/connection-paradigms.md**.
+**Languages:** Of 99+ Whisper languages (client VAD), only those Inworld TTS can speak are supported (12: en, es, fr, de, it, pt, ko, zh, ja, nl, pl, ru). AssemblyAI (server VAD) supports 6. **VAD:** `client_vad` (default), `server_vad`, `semantic_vad`, `disabled`. **Connection models:** hosted flow using **`apiKey`** or legacy **`appId`** (same token issuer field), **`tokenProvider`**, or direct **`voiceConfig.token`**, with advanced recipes such as sidecar and trusted server connections layered on top. See **references/platform-overview.md**, **references/languages-and-vad.md**, **references/connection-paradigms.md**.
 
 ## Overview
 
@@ -87,12 +87,16 @@ Avoid teaching:
 
 ### Connection guidance for 0.2.0
 
-For new guidance, present the client as having two top-level connection models:
+For new guidance, present the client as having these top-level connection models:
 
-1. `appId` hosted/platform flow
-2. token-based flow (`tokenProvider` or pre-issued token)
+1. **Hosted / platform token issuer** — pass **`apiKey`** (preferred) or legacy **`appId`** with the same string the dashboard or Core gives you (publishable `vkey_*` or legacy app id). Optionally set **`convexUrl`** or **`tokenEndpoint`** when minting should not use the default hosted URL.
+2. **Token-based flow** — `tokenProvider` or a pre-issued **`voiceConfig.token`** when your backend controls session issuance.
 
 Treat sidecar and trusted server as advanced recipes, not primary client setup modes.
+
+### Token issuer field: `apiKey` vs `appId`
+
+In **`new Vowel({ ... })`**, **`apiKey`** and **`appId`** are **aliases** for the token issuer identifier. Prefer **`apiKey`** in new code and docs. Examples in this skill often still use **`appId`** in env-driven demos for historical reasons; substituting **`apiKey: value`** is equivalent.
 
 ### Migration framing
 
@@ -180,7 +184,7 @@ For complete patterns, see **references/initialization-context-ready.md**.
 
 **App ID in the browser:** Next.js only inlines **`NEXT_PUBLIC_*`** variables into the client bundle. Use **`NEXT_PUBLIC_VOWEL_APP_ID`**, not **`VOWEL_APP_ID` alone**. A non-public name is **empty in client code**, so `appId` is missing in the browser, **`VowelAppWrapper` exits early** (empty-`appId` guard), and **`VowelProvider` / `VowelAgent` never wrap** — same behavior as in client wrapper code before any app-specific edits.
 
-**API keys (`vkey_*`):** For the usual **platform-managed `appId` flow**, this skill does **not** put a long-lived API key in the frontend; those keys are **server-only**. Putting a key in `.env` does **not** fix a missing mic in the standard setup unless you intentionally use another paradigm (for example **backend-minted tokens**).
+**API keys (`vkey_*`):** **Publishable** keys (`vkey_public_*`) are designed to live in the browser for the standard hosted flow when your product uses key-based token issuance. **Private** / server keys must never ship to the client. If you use **`tokenProvider`** or direct tokens instead, follow that paradigm’s security rules. A missing mic is rarely fixed by stuffing the wrong credential into `.env`—verify the **token issuer identifier** actually reaches `new Vowel({ ... })` in the bundle (see env prefixes above).
 
 ### ⚠️ CRITICAL: Next.js — Use the npm client, not `window.Vowel` without the standalone bundle
 
@@ -218,7 +222,7 @@ Suggested review rule text:
 
 ## Prerequisites
 
-- React 18+ application
+- React 19+ application (React 18 may work but the platform targets React 19)
 - TypeScript (recommended)
 - A router (Next.js, TanStack Router, React Router, or custom)
 - A vowel.to App ID (get one at https://vowel.to)
@@ -621,7 +625,7 @@ vowel.registerAction('addToCart', {
 
 For complete action design guidance, see **references/custom-actions.md**.
 
-## Sub-Agent / Voice Control of App Chat or AI
+## Voice control of in-app chat or embedded AI
 
 If the app has its own programmatically controllable chat, AI interface, or LLM integration (e.g., OpenWebUI, in-app chat, headless API), the Vowel voice agent can act as a **controller** or **orchestrator**. The user speaks to Vowel; Vowel delegates to the app's chat/AI via custom actions; the response is returned and spoken back to the user.
 

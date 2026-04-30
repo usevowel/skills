@@ -16,10 +16,13 @@ Essential context for integrating the vowel voice AI platform into React applica
 
 ## Key Concepts for React Integration
 
-### App ID and Tokens
+### Token issuer identifier (`apiKey` / `appId`) and tokens
 
-- **appId** - Identifier from the vowel platform admin dashboard. When you pass `appId`, the client requests an ephemeral token from the platform; the platform manages API keys and token generation.
-- **Direct token** - Alternative: pass `voiceConfig.token` to bypass the platform token endpoint (for custom auth, server-managed tokens).
+- **`apiKey` (preferred)** - Top-level field on `new Vowel({ ... })` for the **token issuer identifier**. It accepts either a **publishable API key** (`vkey_*`) or a **legacy hosted app identifier** during the migration to key-first auth.
+- **`appId` (legacy alias)** - Same meaning as `apiKey`; kept for backward compatibility. New examples should prefer `apiKey`, but either field works.
+- When you pass one of these identifiers, the client calls the hosted (or custom) token issuer to obtain a **short-lived session token**; long-lived secrets stay off the client except where you intentionally use advanced patterns.
+- **Direct token** - Alternative: pass a pre-issued token via `voiceConfig.token` (or use `tokenProvider`) to bypass the default token endpoint (custom auth, server-managed sessions).
+- **Custom issuer URL** - Optional `convexUrl` or `tokenEndpoint` on the client points token minting at a specific Convex **site** URL or a fully custom HTTP endpoint (see `VowelClientConfig` in `@vowel.to/client`).
 
 ### Dual Adapter Architecture
 
@@ -43,11 +46,11 @@ Vowel supports multiple connection patterns: **platform-managed** (appId), **dev
 
 ### Connection Flow
 
-1. Client creates `Vowel` instance with `appId` or `token`
-2. Platform (or your backend) generates ephemeral token with tool definitions
-3. Client connects WebSocket to voice engine (sndbrd / vowel-prime)
-4. Audio flows: microphone → client → engine → TTS → speaker
-5. Tool calls (navigation, custom actions) execute in the browser
+1. Client creates a `Vowel` instance with `apiKey` / `appId`, `tokenProvider`, or a direct `voiceConfig.token`.
+2. Platform (or your backend) returns a short-lived token with tool definitions.
+3. Client opens a WebSocket to **Vowel Engine** (e.g. hosted **Vowel Prime** or self-hosted engine).
+4. Audio flows: microphone → client → engine → TTS → speaker.
+5. Tool calls (navigation, custom actions) execute in the browser.
 
 ### Custom Actions: Client-Side Execution
 
@@ -64,12 +67,15 @@ When working in the vowel workspace:
 
 - **client/** - `@vowel.to/client` library (adapters, providers, components)
 - **platform/** - Admin dashboard + Convex backend (token generation, app config)
-- **engines/sndbrd/** - Voice AI engine (OpenAI Realtime compatible) - submodule
-- **webextension/** - Browser extension - submodule
-- **demos/** - Reference implementations - submodule
+- **engine/** - **Vowel Engine** realtime backend (OpenAI Realtime–compatible) — submodule
+- **engine-hosted/** - Hosted deployment wrapper for managed **Vowel Prime** (not the default self-hosted stack)
+- **core/** - Self-hosted control plane (apps, keys, runtime JSON)
+- **webextension/** - Browser extension — submodule
+- **demos/** - Reference implementations — submodule
 
 ## Naming Conventions
 
 - **Platform name:** `vowel` (all lowercase)
 - **Domain:** `vowel.to` (package namespace `@vowel.to/client`)
-- **Internal engine:** `sndbrd` (internal only, never in customer-facing docs)
+- **Realtime product:** **Vowel Engine** (use in docs and skills; avoid legacy internal codenames in customer-facing text)
+- **Hosted managed offering:** **Vowel Prime** (managed Vowel Engine; not a separate self-hosted backend)

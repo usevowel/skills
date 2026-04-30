@@ -66,6 +66,7 @@ const { navigationAdapter, automationAdapter } = createDirectAdapters({
 });
 
 const vowel = new Vowel({
+  // Prefer apiKey when migrating; appId is a legacy alias for the same token issuer field.
   appId: 'your-app-id',
   navigationAdapter,
   automationAdapter,
@@ -116,7 +117,7 @@ micButton?.addEventListener('click', async () => {
   window.addEventListener('DOMContentLoaded', () => {
     const VowelCtor = window.Vowel || window.VowelClient?.Vowel;
     const vowel = new VowelCtor({
-      appId: 'your-app-id',
+      appId: 'your-app-id', // or apiKey: 'vkey_public_xxx' — same token issuer slot
       // @ts-ignore - internal caption config may not be fully typed in all builds
       _caption: { enabled: true },
       voiceConfig: {
@@ -161,6 +162,7 @@ const { navigationAdapter, automationAdapter } = createControlledAdapters({
 });
 
 const vowel = new Vowel({
+  // Prefer apiKey when migrating; appId is a legacy alias for the same token issuer field.
   appId: 'your-app-id',
   navigationAdapter,
   automationAdapter,

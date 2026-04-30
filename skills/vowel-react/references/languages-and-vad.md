@@ -36,7 +36,7 @@
 - **Client VAD (Whisper)**: User can speak 99+ languages; AI responds in **12** (Inworld TTS). Unsupported languages fall back to English voice.
 - **Server VAD (AssemblyAI)**: User can speak **6** languages; all 6 are supported by Inworld TTS.
 
-Configure `voiceConfig.language` with an ISO 639-1 code (e.g., `en`, `es`, `zh`). Use `getSupportedLanguages()` from `engines/sndbrd/src/config/inworld-voices.ts` for the canonical list.
+Configure `voiceConfig.language` with an ISO 639-1 code (e.g., `en`, `es`, `zh`). For the canonical voice/language matrix, rely on **Vowel Engine** / hosted preset documentation or the `@vowel.to/client` type hints—do not hardcode a second source of truth in app code.
 
 ## VAD (Voice Activity Detection) Modes
 
