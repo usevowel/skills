@@ -1,6 +1,6 @@
 ---
 name: vowel-react
-description: Initialize vowel.to voice agent in React applications (React 19+, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getAppState fallback), apiKey-first token issuer identifiers (appId is a legacy alias), and optional convexUrl/tokenEndpoint overrides. Next.js notes include NEXT_PUBLIC_VOWEL_APP_ID (not VOWEL_APP_ID alone), import { Vowel } from @vowel.to/client (not window.Vowel without the standalone bundle), and keeping VowelProvider client in React state. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
+description: Initialize vowel.to voice agent in React applications (React 19+, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext), apiKey-first token issuer identifiers (appId is a legacy alias), and optional convexUrl/tokenEndpoint overrides. Next.js notes include NEXT_PUBLIC_VOWEL_APP_ID (not VOWEL_APP_ID alone), import { Vowel } from @vowel.to/client (not window.Vowel without the standalone bundle), and keeping VowelProvider client in React state. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
 ---
 
 # Vowel React Integration
@@ -164,19 +164,20 @@ For TanStack Router integrations, keep router creation in a dedicated `router.ts
 
 **Why this matters:**
 - App stores (userName, language, etc.) often load from localStorage on mount
-- The AI needs state for the initial greeting - context may not be populated when the session starts
 - `voiceConfig.language` should match the user's stored preference
-- Push initial context immediately after creating the client
+- Push initial context immediately after creating the client so the AI has state from the first turn
+- Context is baked into the token request — the AI receives it before speaking for the first time
 - If a root/layout gates rendering on readiness, the initializer for that dependency must run before or outside the gated subtree or the app can deadlock on a permanent loading screen
 
 **Key patterns:**
 1. Call `setAppId` from `useEffect` after App mounts
 2. Push `buildVowelContext()` after creating the client: `vowelInstance.updateContext(buildVowelContext())`
 3. Show a loading gate until client exists before rendering `VowelProvider`
-4. Register a `getAppState`/`getAppState` action; instruct the AI to call it **first** for the initial greeting (context may not be synced yet)
-5. Sync listener immediately on subscribe if client already exists
-6. If rendering is gated on `vowelReady` (or similar), mount the initializer outside that gate so it still runs while loading
-7. For optional integrations, prefer fail-open behavior: log init failure and continue rendering the app instead of blocking the entire root/layout
+4. Sync listener immediately on subscribe if client already exists
+5. If rendering is gated on `vowelReady` (or similar), mount the initializer outside that gate so it still runs while loading
+6. For optional integrations, prefer fail-open behavior: log init failure and continue rendering the app instead of blocking the entire root/layout
+
+**Note:** A separate `getAppState` fallback action is **not needed.** Context is injected into the token request payload before the session starts, so the AI always has state from the first response. The `updateContext()` / `useSyncContext` hook handles runtime context updates.
 
 For complete patterns, see **references/initialization-context-ready.md**.
 
@@ -294,17 +295,11 @@ function createVowelClient(appId: string): Vowel {
 ## CRITICAL: Write to App Store, Not DOM
 **⚠️ MOST IMPORTANT RULE**: When performing actions, you MUST write to the application store/state management system, NOT manipulate the DOM directly. Always use registered actions that modify the app store. The UI will automatically update to reflect state changes.
 
-## CRITICAL: Always Refer to Context for Information
-Before answering ANY question or performing ANY action, ALWAYS check the <context> section for current information. The context contains the most up-to-date state of the application.
-
-## CRITICAL: Initial Greeting (First Thing You Say)
-When you first speak in a new session, you MUST call getAppState() FIRST. The context may not be populated yet - getAppState() reliably returns the current route, app state, userName, language, etc. Do NOT rely on context alone for the initial greeting.
-
-## Current Application State:
-The current state is automatically provided in the <context> section. You always have access to the latest state - no need to call any actions to read it.
+## CRITICAL: Context Is Your Source of Truth
+Current application state (route, cart, products, etc.) is automatically injected into the <context> section. You always have access to the latest state — no need to call any actions to read it.
 
 ## Available Actions:
-[Document your custom actions here, including getAppState for initial greeting]
+[Document your custom actions here]
 
 Help users navigate and interact with the application by modifying state through registered actions.`,
     
@@ -391,15 +386,6 @@ function registerCustomActions(vowel: Vowel) {
   // ⚠️ CRITICAL: All actions MUST be registered BEFORE startSession()!
   // ⚠️ CRITICAL: Actions should write to app store, NOT manipulate DOM!
 
-  // getAppState: Call FIRST for initial greeting - context may not be synced yet
-  vowel.registerAction('getAppState', {
-    description: 'Get current route, ui, userName, language, app state. CALL THIS FIRST when starting a new session (initial greeting) - context may not be populated yet.',
-    parameters: {},
-  }, async () => {
-    const state = buildVowelContext();
-    return { success: true, ...state };
-  });
-  
   // ✅ Good: Action writes to app store
   vowel.registerAction('searchProducts', {
     description: 'Search for products by query string',
@@ -842,9 +828,8 @@ import { VowelMicrophone } from '@vowel.to/client/react';
    - Ensure context object is serializable
 
 6. **AI has wrong/empty state on first turn / initial greeting**
-   - Context may not be populated when session starts - `useSyncContext` runs inside route tree
    - Push initial context after creating client: `vowelInstance.updateContext(buildVowelContext())`
-   - Register `getAppState` action and instruct AI to call it FIRST for initial greeting
+   - Context is injected into the token request before session starts — the AI has state from the first turn
    - See **references/initialization-context-ready.md**
 
 7. **Microphone not working**
@@ -871,7 +856,7 @@ For detailed information on specific topics:
 - **references/platform-overview.md** - What vowel is, key concepts (appId, tokens, adapters), connection flow, monorepo structure
 - **references/languages-and-vad.md** - Supported languages (Whisper, AssemblyAI, Inworld TTS), VAD modes (client_vad, server_vad, semantic_vad)
 - **references/connection-paradigms.md** - appId, developer-managed tokens, fixed API keys, direct WebSocket, sidecar pattern
-- **references/initialization-context-ready.md** - Context-ready initialization, loading gate, buildVowelContext, getAppState fallback
+- **references/initialization-context-ready.md** - Context-ready initialization, loading gate, buildVowelContext
 - **references/router-adapters.md** - Complete router setup guide for all supported routers
 - **references/state-management.md** - State management integration patterns (Valtio, Zustand, Redux)
 - **references/custom-actions.md** - Custom action design and best practices

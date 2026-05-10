@@ -204,34 +204,7 @@ function useVowelInit() {
 }
 ```
 
-## Pattern 5: getAppState Fallback Action
-
-The context may not be populated when the session starts (useSyncContext runs inside the route tree). Provide an action the AI can call **first** for the initial greeting.
-
-```typescript
-// vowel.client.ts - register getAppState
-vowel.registerAction(
-  "getAppState",
-  {
-    description:
-      "Get the current app/screen state. Returns route, ui, userName, language. CALL THIS FIRST when starting a new session (initial greeting) - context may not be populated yet.",
-    parameters: {},
-  },
-  async () => {
-    const state = buildVowelContext();
-    return { success: true, ...state };
-  }
-);
-```
-
-**System instructions:** Tell the AI to call `getAppState()` first when it speaks:
-
-```
-## CRITICAL: Initial Greeting (First Thing You Say)
-When you first speak in a new session, you MUST call getAppState() FIRST. The context may not be populated yet - getAppState() reliably returns the current route, app state, userName, language, etc. Do NOT rely on context alone for the initial greeting.
-```
-
-## Pattern 6: subscribeToVowelChanges - Sync on Subscribe
+## Pattern 5: subscribeToVowelChanges - Sync on Subscribe
 
 When a component subscribes, immediately invoke the listener with the current client if one exists (handles race where client was created before subscription).
 
@@ -245,7 +218,7 @@ export function subscribeToVowelChanges(listener: VowelChangeListener): () => vo
 }
 ```
 
-## Pattern 7: Config Sync When Language/User Changes
+## Pattern 6: Config Sync When Language/User Changes
 
 When `language` or `userName` changes (affects STT/TTS and initial greeting), recreate the client so the next session uses the new values.
 
@@ -272,7 +245,7 @@ export function syncVowelLanguage() {
 }
 ```
 
-## Pattern 8: VowelStateSync Inside Route Tree
+## Pattern 7: VowelStateSync Inside Route Tree
 
 Mount `VowelStateSync` inside the root route (inside both `RouterProvider` and `VowelProvider`) so it has access to `useRouterState` and `useSyncContext`.
 
@@ -297,7 +270,6 @@ function RootComponent() {
 - [ ] Push `buildVowelContext()` immediately after creating the client
 - [ ] Export `buildVowelContext` callable outside React (no hooks)
 - [ ] Show loading until `vowel !== null || !appId` before rendering VowelProvider
-- [ ] Register `getAppState` action and instruct AI to call it FIRST for initial greeting
 - [ ] Sync listener immediately on subscribe if client already exists
 - [ ] Recreate client when language/userName changes (if they affect voice config)
 - [ ] Mount VowelStateSync inside root route (inside RouterProvider + VowelProvider)

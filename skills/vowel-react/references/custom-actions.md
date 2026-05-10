@@ -63,7 +63,7 @@ vowel.registerAction('addToCart', {
 **⚠️ IMPORTANT:** Actions cannot call other actions. Only the AI agent can call actions. Action handlers can only interact with your application code (stores, APIs, DOM if absolutely necessary, etc.).
 
 This means:
-- Don't try to call `getAppState()` from within another action
+- Don't try to call another action from within an action handler
 - Don't try to chain actions programmatically
 - The AI orchestrates action calls, not your action handlers
 
