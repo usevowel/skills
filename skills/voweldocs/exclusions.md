@@ -132,5 +132,5 @@ These frameworks provide the JavaScript runtime necessary for full vowel integra
 ## See Also
 
 - [`vowel-webcomponent`](../../vowel-webcomponent/SKILL.md) - Framework-agnostic web component skill
-- [Framework Comparison](./doc-frameorks.md) - Full documentation framework comparison
+- See platform guides for framework-specific integration details
 - [voweldocs SKILL](./SKILL.md) - Main voweldocs integration guide

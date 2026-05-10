@@ -71,6 +71,9 @@ interface VowelConfig {
     turnDetection?: {
       mode: 'server_vad';
     };
+    /** Dev-only STT/TTS provider overrides */
+    stt?: { provider: string };
+    tts?: { provider: string };
     systemPrompt?: string;
   };
   _caption: {

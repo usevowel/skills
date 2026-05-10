@@ -81,7 +81,7 @@ export function setAppId(appId: string) {
   if (!appId) return;
   currentAppId = appId;
   vowelInstance = createVowelClient(appId);
-  /** Push initial context from stores (userName, language, games, etc.) */
+  /** Push initial context from stores (userName, language, appState, etc.) */
   vowelInstance.updateContext(buildVowelContext());
   console.log("✅ Vowel client initialized with App ID:", appId);
   vowelChangeListeners.forEach((listener) => listener(vowelInstance));
@@ -102,7 +102,7 @@ export interface RouteContext {
 }
 
 /**
- * Build the Vowel context object from current app and games store state.
+ * Build the Vowel context object from current app store state.
  * Used for initial context when creating the client and for ongoing sync.
  * Callable outside React (e.g. from vowel.client when creating the client).
  *
@@ -111,7 +111,6 @@ export interface RouteContext {
  */
 export function buildVowelContext(routeOverride?: RouteContext) {
   const app = snapshot(appStore);
-  const games = snapshot(gamesStore);
   const route = routeOverride ?? (() => {
     const loc = router.state.location;
     return {
@@ -126,7 +125,6 @@ export function buildVowelContext(routeOverride?: RouteContext) {
     ui: { currentScreen: route.pathnameLabel },
     userName: app.userName,
     language: app.language,
-    games: { /* ... */ },
   };
 }
 ```
@@ -206,17 +204,17 @@ function useVowelInit() {
 }
 ```
 
-## Pattern 5: getGameState / getAppState Fallback Action
+## Pattern 5: getAppState Fallback Action
 
 The context may not be populated when the session starts (useSyncContext runs inside the route tree). Provide an action the AI can call **first** for the initial greeting.
 
 ```typescript
-// vowel.client.ts - register getGameState
+// vowel.client.ts - register getAppState
 vowel.registerAction(
-  "getGameState",
+  "getAppState",
   {
     description:
-      "Get the current game/screen state. Returns route, ui, userName, language, games. CALL THIS FIRST when starting a new session (initial greeting) - context may not be populated yet.",
+      "Get the current app/screen state. Returns route, ui, userName, language. CALL THIS FIRST when starting a new session (initial greeting) - context may not be populated yet.",
     parameters: {},
   },
   async () => {
@@ -226,11 +224,11 @@ vowel.registerAction(
 );
 ```
 
-**System instructions:** Tell the AI to call `getGameState()` first when it speaks:
+**System instructions:** Tell the AI to call `getAppState()` first when it speaks:
 
 ```
 ## CRITICAL: Initial Greeting (First Thing You Say)
-When you first speak in a new session, you MUST call getGameState() FIRST. The context may not be populated yet - getGameState() reliably returns the current route, games state, userName, language, etc. Do NOT rely on context alone for the initial greeting.
+When you first speak in a new session, you MUST call getAppState() FIRST. The context may not be populated yet - getAppState() reliably returns the current route, app state, userName, language, etc. Do NOT rely on context alone for the initial greeting.
 ```
 
 ## Pattern 6: subscribeToVowelChanges - Sync on Subscribe
@@ -299,7 +297,7 @@ function RootComponent() {
 - [ ] Push `buildVowelContext()` immediately after creating the client
 - [ ] Export `buildVowelContext` callable outside React (no hooks)
 - [ ] Show loading until `vowel !== null || !appId` before rendering VowelProvider
-- [ ] Register `getGameState` action and instruct AI to call it FIRST for initial greeting
+- [ ] Register `getAppState` action and instruct AI to call it FIRST for initial greeting
 - [ ] Sync listener immediately on subscribe if client already exists
 - [ ] Recreate client when language/userName changes (if they affect voice config)
 - [ ] Mount VowelStateSync inside root route (inside RouterProvider + VowelProvider)

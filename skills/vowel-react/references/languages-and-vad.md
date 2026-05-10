@@ -38,6 +38,26 @@
 
 Configure `voiceConfig.language` with an ISO 639-1 code (e.g., `en`, `es`, `zh`). For the canonical voice/language matrix, rely on **Vowel Engine** / hosted preset documentation or the `@vowel.to/client` type hints—do not hardcode a second source of truth in app code.
 
+## STT/TTS Provider Override (Dev-Only)
+
+For development and testing, you can override the server-resolved STT and TTS providers via `voiceConfig.stt` and `voiceConfig.tts`. These are `@internal` dev-only fields — in production, the managed preset system resolves the optimal provider stack.
+
+```typescript
+voiceConfig: {
+  // ... standard config ...
+  stt: { provider: 'deepgram' },      // dev override
+  tts: { provider: 'deepgram' },      // dev override
+}
+```
+
+**Supported STT providers:** `deepgram`, `groq-whisper`, `assemblyai`, `fennec`, `modulate`, `grok`, `mistral-voxtral-realtime`, `none` (text-only).
+
+**Supported TTS providers:** `deepgram`, `inworld`, `grok`, `none` (text-only).
+
+The `"none"` provider disables speech I/O — the session operates in text-only mode. Set the server preset to `text-only` for production or use the dev override for testing.
+
+**See also:** `SttOverrideConfig` and `TtsOverrideConfig` types in `@vowel.to/client`.
+
 ## VAD (Voice Activity Detection) Modes
 
 Turn detection controls when speech is detected and when the AI responds. Configure via `voiceConfig.turnDetection`.
@@ -103,7 +123,7 @@ voiceConfig: {
 
 ## Source References
 
-- Whisper languages: `engines/sndbrd/docs/WHISPER_LANGUAGES.md`
-- Inworld voices: `engines/sndbrd/src/config/inworld-voices.ts`
+- Whisper languages: docs/WHISPER_LANGUAGES.md in Vowel Engine
+- Inworld voices: src/config/inworld-voices.ts in Vowel Engine
 - AssemblyAI languages: 6 (en, es, fr, de, it, pt)
 - Client VAD types: `client/README.md` (turnDetection section)
