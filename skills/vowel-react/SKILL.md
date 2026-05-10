@@ -1,6 +1,6 @@
 ---
 name: vowel-react
-description: Initialize vowel.to voice agent in React applications (React 19+, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getGameState fallback), apiKey-first token issuer identifiers (appId is a legacy alias), and optional convexUrl/tokenEndpoint overrides. Next.js notes include NEXT_PUBLIC_VOWEL_APP_ID (not VOWEL_APP_ID alone), import { Vowel } from @vowel.to/client (not window.Vowel without the standalone bundle), and keeping VowelProvider client in React state. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
+description: Initialize vowel.to voice agent in React applications (React 19+, Next.js, TanStack Router, React Router) with complete setup including adapters, providers, and custom actions. Use when setting up voice agent integration, configuring navigation adapters, implementing custom voice actions, or integrating state management with voice AI. Covers context-ready initialization (deferred setAppId, loading gate, buildVowelContext, getAppState fallback), apiKey-first token issuer identifiers (appId is a legacy alias), and optional convexUrl/tokenEndpoint overrides. Next.js notes include NEXT_PUBLIC_VOWEL_APP_ID (not VOWEL_APP_ID alone), import { Vowel } from @vowel.to/client (not window.Vowel without the standalone bundle), and keeping VowelProvider client in React state. The skill emphasizes writing to app stores rather than DOM manipulation, with automation harness disabled by default.
 ---
 
 # Vowel React Integration
@@ -173,7 +173,7 @@ For TanStack Router integrations, keep router creation in a dedicated `router.ts
 1. Call `setAppId` from `useEffect` after App mounts
 2. Push `buildVowelContext()` after creating the client: `vowelInstance.updateContext(buildVowelContext())`
 3. Show a loading gate until client exists before rendering `VowelProvider`
-4. Register a `getGameState`/`getAppState` action; instruct the AI to call it **first** for the initial greeting (context may not be synced yet)
+4. Register a `getAppState`/`getAppState` action; instruct the AI to call it **first** for the initial greeting (context may not be synced yet)
 5. Sync listener immediately on subscribe if client already exists
 6. If rendering is gated on `vowelReady` (or similar), mount the initializer outside that gate so it still runs while loading
 7. For optional integrations, prefer fail-open behavior: log init failure and continue rendering the app instead of blocking the entire root/layout
@@ -298,13 +298,13 @@ function createVowelClient(appId: string): Vowel {
 Before answering ANY question or performing ANY action, ALWAYS check the <context> section for current information. The context contains the most up-to-date state of the application.
 
 ## CRITICAL: Initial Greeting (First Thing You Say)
-When you first speak in a new session, you MUST call getGameState() FIRST. The context may not be populated yet - getGameState() reliably returns the current route, games state, userName, language, etc. Do NOT rely on context alone for the initial greeting.
+When you first speak in a new session, you MUST call getAppState() FIRST. The context may not be populated yet - getAppState() reliably returns the current route, app state, userName, language, etc. Do NOT rely on context alone for the initial greeting.
 
 ## Current Application State:
 The current state is automatically provided in the <context> section. You always have access to the latest state - no need to call any actions to read it.
 
 ## Available Actions:
-[Document your custom actions here, including getGameState for initial greeting]
+[Document your custom actions here, including getAppState for initial greeting]
 
 Help users navigate and interact with the application by modifying state through registered actions.`,
     
@@ -337,7 +337,11 @@ Help users navigate and interact with the application by modifying state through
       model: "openai/gpt-oss-120b",
       voice: 'Timothy',
       language: 'en-US',
-      initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using available context (route/page and user state), then ask what they want to do next.`
+      initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using available context (route/page and user state), then ask what they want to do next.`,
+      // DEV-ONLY: STT/TTS provider overrides for testing.
+      // In production, the server preset resolves the optimal stack.
+      // stt: { provider: 'deepgram' },
+      // tts: { provider: 'deepgram' },
     },
     
     onUserSpeakingChange: (isSpeaking) => {
@@ -358,13 +362,13 @@ Help users navigate and interact with the application by modifying state through
 /**
  * Create the Vowel client. Call only after app state is loaded from localStorage
  * (i.e. from useEffect after App mounts, not at module load).
- * Pushes initial context from app/games stores so the AI has state immediately.
+ * Pushes initial context from app stores so the AI has state immediately.
  */
 export function setAppId(appId: string) {
   if (!appId) return;
   currentAppId = appId;
   vowelInstance = createVowelClient(appId);
-  /** Push initial context from stores (userName, language, games, etc.) */
+  /* * Push initial context from stores (userName, language, appState, etc.) */
   vowelInstance.updateContext(buildVowelContext());
   console.log('✅ Vowel client initialized with App ID:', appId);
   vowelChangeListeners.forEach(listener => listener(vowelInstance));
@@ -387,9 +391,9 @@ function registerCustomActions(vowel: Vowel) {
   // ⚠️ CRITICAL: All actions MUST be registered BEFORE startSession()!
   // ⚠️ CRITICAL: Actions should write to app store, NOT manipulate DOM!
 
-  // getGameState: Call FIRST for initial greeting - context may not be synced yet
-  vowel.registerAction('getGameState', {
-    description: 'Get current route, ui, userName, language, games. CALL THIS FIRST when starting a new session (initial greeting) - context may not be populated yet.',
+  // getAppState: Call FIRST for initial greeting - context may not be synced yet
+  vowel.registerAction('getAppState', {
+    description: 'Get current route, ui, userName, language, app state. CALL THIS FIRST when starting a new session (initial greeting) - context may not be populated yet.',
     parameters: {},
   }, async () => {
     const state = buildVowelContext();
@@ -840,7 +844,7 @@ import { VowelMicrophone } from '@vowel.to/client/react';
 6. **AI has wrong/empty state on first turn / initial greeting**
    - Context may not be populated when session starts - `useSyncContext` runs inside route tree
    - Push initial context after creating client: `vowelInstance.updateContext(buildVowelContext())`
-   - Register `getGameState` action and instruct AI to call it FIRST for initial greeting
+   - Register `getAppState` action and instruct AI to call it FIRST for initial greeting
    - See **references/initialization-context-ready.md**
 
 7. **Microphone not working**
@@ -867,7 +871,7 @@ For detailed information on specific topics:
 - **references/platform-overview.md** - What vowel is, key concepts (appId, tokens, adapters), connection flow, monorepo structure
 - **references/languages-and-vad.md** - Supported languages (Whisper, AssemblyAI, Inworld TTS), VAD modes (client_vad, server_vad, semantic_vad)
 - **references/connection-paradigms.md** - appId, developer-managed tokens, fixed API keys, direct WebSocket, sidecar pattern
-- **references/initialization-context-ready.md** - Context-ready initialization, loading gate, buildVowelContext, getGameState fallback
+- **references/initialization-context-ready.md** - Context-ready initialization, loading gate, buildVowelContext, getAppState fallback
 - **references/router-adapters.md** - Complete router setup guide for all supported routers
 - **references/state-management.md** - State management integration patterns (Valtio, Zustand, Redux)
 - **references/custom-actions.md** - Custom action design and best practices
