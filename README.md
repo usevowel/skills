@@ -20,19 +20,23 @@ Install the repository:
 npx skills add usevowel/skills
 ```
 
-Then invoke a skill by name in your agent:
+Then invoke a skill by name in your agent. **Framework-specific skills (`vowel-react`, `vowel-vanilla`, `vowel-webcomponent`) load `vowel-client` internally for core concepts.**
 
-- `vowel-react` for React, Next.js, TanStack Router, or React Router apps
-- `vowel-vanilla` for plain JavaScript apps and traditional multi-page sites
-- `vowel-webcomponent` for `<vowel-voice-widget>` integrations
-- `voweldocs` for documentation sites (VitePress/Vue, Docusaurus, Nextra, Starlight, etc.)
+- `vowel-client` — Core @vowel.to/client knowledge (loaded as dependency by all other skills)
+- `vowel-react` — React, Next.js, TanStack Router, or React Router apps (requires `vowel-client`)
+- `vowel-vanilla` — Plain JavaScript apps and traditional multi-page sites (requires `vowel-client`)
+- `vowel-webcomponent` — `<vowel-voice-widget>` integrations (requires `vowel-client`)
+- `voweldocs` — Documentation sites (VitePress/Vue, Astro/Starlight) (requires `vowel-client`)
 
 ## Included skills
 
-- `vowel-react`: Set up vowel voice agents in React applications.
-- `vowel-vanilla`: Set up vowel voice agents in vanilla JavaScript applications.
-- `vowel-webcomponent`: Set up vowel voice agents with the web component embed.
-- `voweldocs`: Add voice-powered AI navigation to documentation sites (VitePress/Vue example).
+| Skill | Layer | Purpose |
+|-------|-------|---------|
+| `vowel-client` | Core | Framework-agnostic client knowledge: config, adapters, VAD, actions, context |
+| `vowel-react` | Framework | React/Next.js/Router: hooks, providers, state management, router adapters |
+| `vowel-vanilla` | Framework | Vanilla JS: direct/controlled adapters, standalone bundle, multi-page patterns |
+| `vowel-webcomponent` | Framework | Web component: `<vowel-voice-widget>` embed, events, attribute-based config |
+| `voweldocs` | Product | Branded VowelDocs: route discovery, Astro lifecycle, RAG, credential modal |
 
 ## Repository scope
 

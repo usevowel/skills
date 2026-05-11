@@ -1,20 +1,13 @@
 ---
 name: vowel-vanilla
-description: Initialize vowel.to voice agent in vanilla JavaScript applications (no React) using standalone bundles or module imports, direct/controlled adapters, and custom actions. Use when integrating voice into plain JS SPAs or traditional multi-page sites.
+description: Initialize vowel.to voice agent in vanilla JavaScript applications (no React) using standalone bundles or module imports, direct/controlled adapters, and custom actions. Use when integrating voice into plain JS SPAs or traditional multi-page sites. First read vowel-client/SKILL.md for core @vowel.to/client knowledge.
 ---
 
 # Vowel Vanilla JavaScript Integration
 
-Initialize a vowel.to voice agent in plain JavaScript applications with predictable startup and session behavior.
+**Before using this skill, read `vowel-client/SKILL.md` for core @vowel.to/client concepts** (installation, voiceConfig, connection paradigms, context management, custom actions basics).
 
-## Overview
-
-Use this skill when the app is not React-first and you want direct control over:
-
-- Vowel client lifecycle
-- Navigation + automation adapters
-- Custom action registration
-- Session start/stop UI wiring
+This skill adds vanilla-JS-specific patterns.
 
 ## Core Principles
 
@@ -31,20 +24,9 @@ Call `startSession()` from a click/tap handler to satisfy browser audio/micropho
 - `createDirectAdapters(...)`: SPAs using client-side routing.
 - `createControlledAdapters(...)`: traditional multi-page sites with full reloads.
 
-See [references/adapter-patterns.md](references/adapter-patterns.md).
-
 ### 4) Default to App-Specific Greeting + Captions
 
-Set `voiceConfig.initialGreetingPrompt` to match the app's domain/page context, and enable captions by default (`_caption.enabled = true`).
-
-## Installation
-
-```bash
-bun add @vowel.to/client @ricky0123/vad-web
-
-# Or if using npm/yarn:
-# npm install @vowel.to/client @ricky0123/vad-web
-```
+Set `voiceConfig.initialGreetingPrompt` to match the app's domain, and enable captions by default (`_caption.enabled = true`).
 
 ## Quick Start (Bundler / Module Import)
 
@@ -60,17 +42,14 @@ const { navigationAdapter, automationAdapter } = createDirectAdapters({
   routes: [
     { path: '/', description: 'Home page' },
     { path: '/products', description: 'Products page' },
-    { path: '/cart', description: 'Cart page' },
   ],
   enableAutomation: true,
 });
 
 const vowel = new Vowel({
-  // Prefer apiKey when migrating; appId is a legacy alias for the same token issuer field.
-  appId: 'your-app-id',
+  apiKey: 'vkey_public_xxx',
   navigationAdapter,
   automationAdapter,
-  // @ts-ignore - internal caption config may not be fully typed in all builds
   _caption: { enabled: true },
   voiceConfig: {
     provider: 'vowel-prime',
@@ -83,20 +62,15 @@ const vowel = new Vowel({
   }
 });
 
-vowel.registerAction(
-  'searchProducts',
-  {
-    description: 'Search products by query',
-    parameters: {
-      query: { type: 'string', description: 'Search query text' },
-    },
+vowel.registerAction('searchProducts', {
+  description: 'Search products by query',
+  parameters: {
+    query: { type: 'string', description: 'Search query text' },
   },
-  async ({ query }) => {
-    // Update app state/store here, not direct random DOM mutations.
-    runSearch(query);
-    return { success: true };
-  }
-);
+}, async ({ query }) => {
+  runSearch(query);
+  return { success: true };
+});
 
 const micButton = document.getElementById('voice-toggle');
 micButton?.addEventListener('click', async () => {
@@ -117,8 +91,7 @@ micButton?.addEventListener('click', async () => {
   window.addEventListener('DOMContentLoaded', () => {
     const VowelCtor = window.Vowel || window.VowelClient?.Vowel;
     const vowel = new VowelCtor({
-      appId: 'your-app-id', // or apiKey: 'vkey_public_xxx' — same token issuer slot
-      // @ts-ignore - internal caption config may not be fully typed in all builds
+      apiKey: 'vkey_public_xxx',
       _caption: { enabled: true },
       voiceConfig: {
         provider: 'vowel-prime',
@@ -131,7 +104,6 @@ micButton?.addEventListener('click', async () => {
       }
     });
 
-    // Register actions before session start.
     vowel.registerAction('ping', {
       description: 'Health check',
       parameters: {}
@@ -147,7 +119,7 @@ micButton?.addEventListener('click', async () => {
 
 ## Multi-Page Sites (Reload Navigation)
 
-For server-rendered/traditional sites, use controlled adapters so state and voice navigation survive page transitions.
+For server-rendered/traditional sites, use controlled adapters:
 
 ```ts
 import { Vowel, createControlledAdapters } from '@vowel.to/client';
@@ -162,11 +134,9 @@ const { navigationAdapter, automationAdapter } = createControlledAdapters({
 });
 
 const vowel = new Vowel({
-  // Prefer apiKey when migrating; appId is a legacy alias for the same token issuer field.
-  appId: 'your-app-id',
+  apiKey: 'vkey_public_xxx',
   navigationAdapter,
   automationAdapter,
-  // @ts-ignore - internal caption config may not be fully typed in all builds
   _caption: { enabled: true },
   voiceConfig: {
     provider: 'vowel-prime',
@@ -184,23 +154,6 @@ const vowel = new Vowel({
 
 - Subscribe with `vowel.onStateChange(...)` to drive button labels and status UI.
 - Use `vowel.notifyEvent(...)` for app-side notifications that should be spoken.
-- Keep route descriptions accurate so navigation commands are reliable.
-
-## Sub-Agent / Voice Control of App Chat or AI
-
-If the app has its own programmatically controllable chat, AI interface, or LLM integration (e.g., OpenWebUI, in-app chat, headless API), the Vowel voice agent can act as a **controller** or **orchestrator**. The user speaks to Vowel; Vowel delegates to the app's chat/AI via custom actions; the response is returned and spoken back to the user.
-
-**Pattern:**
-- User: "Ask the AI to summarize this page" → Vowel calls an action that sends the prompt to the app's chat
-- App's chat/AI processes and returns a response
-- Vowel speaks the response back to the user
-
-**Implementation:**
-1. **Register custom actions** that bridge to whatever is programmatically controllable (chat send API, global function, postMessage to iframe, etc.). Choose action names that fit the app's domain (e.g., `sendToAppChat`, `askEmbeddedAI`, `queryChatModel`, `sendPromptToLLM`).
-2. **Action handler** should: send the user's request (or a derived prompt) to the app's chat/AI, wait for the response, and return it so the voice agent can speak it.
-3. **System instructions** should tell the voice agent when to delegate: e.g., "When the user says 'ask the AI', 'tell the chat', 'send a message to the model', or similar, use the [action name] to send the request and speak back the response."
-
-Support any interface that can be controlled programmatically via vowel actions. The coding agent may choose appropriate action names and parameter shapes based on the app's structure.
 
 ## Troubleshooting
 
@@ -208,3 +161,7 @@ Support any interface that can be controlled programmatically via vowel actions.
 - No mic prompt: site must be HTTPS (or localhost).
 - Actions ignored: verify actions were registered before `startSession()`.
 - Navigation fails: adapter pattern mismatches app routing model.
+
+## Reference
+
+- **references/adapter-patterns.md** - Direct vs controlled adapter patterns
