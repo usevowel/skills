@@ -145,7 +145,7 @@ Framework note:
 - Never let Vowel routes use source paths like `/content/docs/...`.
 - Generate a canonical route map from the docs source and canonical site origin.
 - Regenerate the route map whenever docs files, slugs, sidebar structure, or site origin changes.
-- After changing the linked Vowel client package, rebuild that package and then rebuild the docs app.
+- Use the NPM-published `@vowel.to/client` by default. If testing local changes, run `bun link @vowel.to/client` in the docs app and rebuild.
 - Always include the canonical `voweldocs` header button and credential modal UI, with the same storage key, class names, interaction model, and local-storage behavior used in this repo.
 - Prefer exact parity with this repo’s shipped VowelDocs experience over framework-specific reinterpretation.
 
@@ -180,7 +180,7 @@ Then run the relevant build commands from [platform/astro/astro.md](./platform/a
 When you want Codex to refresh or recreate the Astro docs voice integration, use this prompt:
 
 ```text
-/voweldocs-sync Rebuild the Astro/Starlight Vowel docs integration. Regenerate the canonical docs route map, verify Astro site origin and sitemap output, rebuild the linked Vowel client if its source changed, rebuild the docs app, and validate that navigation uses Astro SPA routing without dropping the live session or audio playback.
+/voweldocs-sync Rebuild the Astro/Starlight Vowel docs integration. Regenerate the canonical docs route map, verify Astro site origin and sitemap output, rebuild the docs app, and validate that navigation uses Astro SPA routing without dropping the live session or audio playback.
 ```
 
 ## Deliverables

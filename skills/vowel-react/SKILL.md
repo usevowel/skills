@@ -68,19 +68,7 @@ Use `import { Vowel } from '@vowel.to/client'`. If using `window.Vowel`, the sta
 
 ## ⚠️ CRITICAL: VowelProvider State Management
 
-Do **not** store the Vowel instance in a module-level variable set from a child `useEffect`. This does **not** re-render the parent that renders `VowelProvider`, so `client` stays `null` forever.
-
-Use `useState` for the client and `subscribeToVowelChanges()` (or set state when init completes) in the **same** component subtree as `VowelProvider`.
-
-Under React Strict Mode, prefer **idempotent init** or **state-driven readiness** instead of a sticky `initialized` flag that blocks the second mount.
-
-## ⚠️ CRITICAL: Startup Deadlock Guard
-
-If a root/layout gates rendering on `vowelReady`, the initializer for that dependency must run **before or outside** the gated subtree. Otherwise `vowelReady` can never flip.
-
-Required checks:
-- If rendering is gated on `vowelReady`, `setAppId` init must run outside that gated subtree
-- For optional integrations, wrap init in `try/catch`, log failures, continue rendering without the integration
+Create the Vowel instance before passing it to `VowelProvider`. A simple factory function is all you need — no subscription system, no loading gates.
 
 ## ⚠️ CRITICAL: Write to App Store, Not DOM
 
@@ -111,25 +99,14 @@ declare module '@tanstack/react-router' {
 import { Vowel, createTanStackAdapters } from '@vowel.to/client';
 import { router } from './router';
 
-function buildVowelContext() {
-  const loc = router.state.location;
-  return { route: { pathname: loc.pathname, pathnameLabel: loc.pathname || 'Home', search: String(loc.search) } };
-}
-
-let currentAppId: string | null = null;
-let vowelInstance: Vowel | null = null;
-
-type VowelChangeListener = (client: Vowel | null) => void;
-const vowelChangeListeners = new Set<VowelChangeListener>();
-
-function createVowelClient(appId: string): Vowel {
-  const { navigationAdapter, automationAdapter } = createTanStackAdapters({
+export function createVowelClient(apiKey: string) {
+  const { navigationAdapter } = createTanStackAdapters({
     router: router as any,
     enableAutomation: false
   });
 
   const vowel = new Vowel({
-    appId: appId,
+    apiKey,
     instructions: `You are a helpful assistant for this application.
 
 ## CRITICAL: Write to App Store, Not DOM
@@ -137,9 +114,6 @@ When performing actions, you MUST write to the application store/state managemen
 
 ## CRITICAL: Context Is Your Source of Truth
 Current application state is automatically injected into the <context> section. You always have access to the latest state.
-
-## Available Actions:
-[Document your custom actions here]
 
 Help users navigate and interact with the application by modifying state through registered actions.`,
     
@@ -170,41 +144,10 @@ Help users navigate and interact with the application by modifying state through
       language: 'en-US',
       initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using available context (route/page and user state), then ask what they want to do next.`,
     },
-    
-    onUserSpeakingChange: (isSpeaking) => {
-      console.log(isSpeaking ? '🗣️ User started speaking' : '🔇 User stopped speaking');
-    },
-    onAIThinkingChange: (isThinking) => {
-      console.log(isThinking ? '🧠 AI started thinking' : '💭 AI stopped thinking');
-    },
-    onAISpeakingChange: (isSpeaking) => {
-      console.log(isSpeaking ? '🔊 AI started speaking' : '🔇 AI stopped speaking');
-    },
   });
 
   registerCustomActions(vowel);
   return vowel;
-}
-
-export function setAppId(appId: string) {
-  if (!appId) return;
-  currentAppId = appId;
-  vowelInstance = createVowelClient(appId);
-  vowelInstance.updateContext(buildVowelContext());
-  console.log('✅ Vowel client initialized with App ID:', appId);
-  vowelChangeListeners.forEach(listener => listener(vowelInstance));
-}
-
-export function getVowel(): Vowel | null {
-  return vowelInstance;
-}
-
-export function subscribeToVowelChanges(listener: VowelChangeListener): () => void {
-  vowelChangeListeners.add(listener);
-  if (vowelInstance) {
-    listener(vowelInstance);
-  }
-  return () => vowelChangeListeners.delete(listener);
 }
 
 function registerCustomActions(vowel: Vowel) {
@@ -224,56 +167,24 @@ function registerCustomActions(vowel: Vowel) {
 
 ```typescript
 // App.tsx
-import { useEffect, useState } from 'react';
+import { VowelProvider, VowelAgent } from '@vowel.to/client/react';
 import { RouterProvider } from '@tanstack/react-router';
-import { VowelProvider } from '@vowel.to/client/react';
 import { router } from './router';
-import { getVowel, setAppId, subscribeToVowelChanges, type VowelClientType } from './vowel.client';
+import { createVowelClient } from './vowel.client';
 
-function useVowelInit() {
-  useEffect(() => {
-    const appId = import.meta.env.VITE_VOWEL_APP_ID;
-    if (appId) setAppId(appId);
-  }, []);
-}
-
-function VowelInit() {
-  useVowelInit();
-  return null;
-}
-
-function AppLoading() {
-  return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
-}
-
-function AppContent() {
-  const [vowel, setVowel] = useState<VowelClientType>(getVowel());
-  const appId = import.meta.env.VITE_VOWEL_APP_ID;
-
-  useEffect(() => {
-    const unsubscribe = subscribeToVowelChanges((client) => setVowel(client));
-    return () => unsubscribe();
-  }, []);
-
-  const vowelReady = vowel !== null || !appId;
-  if (!vowelReady) return <AppLoading />;
-
-  return (
-    <VowelProvider client={vowel ?? null}>
-      <RouterProvider router={router} />
-    </VowelProvider>
-  );
-}
+const vowel = createVowelClient(import.meta.env.VITE_VOWEL_API_KEY);
 
 function App() {
   return (
-    <>
-      <VowelInit />
-      <AppContent />
-    </>
+    <VowelProvider client={vowel}>
+      <RouterProvider router={router} />
+      <VowelAgent position="bottom-right" enableFloatingCursor={false} />
+    </VowelProvider>
   );
 }
 ```
+
+If your API key is loaded asynchronously (e.g. from a dialog or config fetch), wrap `VowelProvider` in a component that creates the client after the key is available.
 
 ### 4. Add Voice UI to Root Route
 
@@ -281,12 +192,10 @@ function App() {
 // routes/__root.tsx
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 import { VowelAgent } from '@vowel.to/client/react';
-import { VowelStateSync } from './vowel.state';
 
 function RootComponent() {
   return (
     <div className="min-h-screen">
-      <VowelStateSync />
       <nav>{/* Your navigation */}</nav>
       <main>
         <Outlet />
@@ -344,15 +253,13 @@ For detailed state management patterns (Valtio, Zustand, Redux), see **reference
 
 ## Context-Ready Initialization
 
-**Initialize the Vowel client only after app context (stores, localStorage) is ready.** See **references/initialization-context-ready.md** for full patterns:
+If app context (stores, localStorage) is loaded asynchronously, create the Vowel client after that data is available. Push initial context immediately after creation so the AI has state from the first turn.
 
-1. Call `setAppId` from `useEffect` after App mounts, not at module load
-2. Push `buildVowelContext()` immediately after creating the client
-3. Show loading gate until client exists before rendering `VowelProvider`
-4. Sync listener immediately on subscribe if client already exists
-5. Mount initializer outside loading gate to avoid deadlocks
+```typescript
+vowel.updateContext({ route: { pathname: '/products' }, userName: 'Alice' });
+```
 
-**Note:** A fallback action for initial context is not needed. Context is injected into the token request before the session starts.
+Context is injected into the token request before the session starts — no fallback action needed.
 
 ## Voice UI Components
 
@@ -421,9 +328,8 @@ Help users interact with the application by modifying state through registered a
 ## Troubleshooting (React-Specific)
 
 1. **Client is null / Provider not mounting**
-   - `VowelProvider` must receive client via **`useState`** + subscription, not module-level variable
-   - Call `setAppId()` from `useEffect` after App mounts, not at module load
-   - Check for startup deadlock: loading gate hides the init component
+   - `VowelProvider` must receive a valid client instance — create it before rendering the provider
+   - For async API key loading, use a state variable to hold the client and create it once the key is available
    - **Next.js:** Use **`NEXT_PUBLIC_VOWEL_APP_ID`** (not `VOWEL_APP_ID` alone)
 
 2. **`Cannot access 'router' before initialization`**
@@ -432,7 +338,7 @@ Help users interact with the application by modifying state through registered a
    - Remove circular imports
 
 3. **AI has wrong/empty state on first turn**
-   - Push `updateContext(buildVowelContext())` after creating client
+   - Push `updateContext(initialState)` after creating client
    - Context is injected into the token request before session starts
 
 4. **Next.js mic not working**
@@ -443,7 +349,7 @@ Help users interact with the application by modifying state through registered a
 
 - **references/router-adapters.md** — Complete router setup guide for all supported routers
 - **references/state-management.md** — State management integration patterns (Valtio, Zustand, Redux)
-- **references/initialization-context-ready.md** — Context-ready initialization, loading gate, buildVowelContext
+- **references/initialization-context-ready.md** — Context-ready initialization guide
 - **references/custom-actions.md** — Custom action design and best practices
 - **references/languages-and-vad.md** — Supported languages and VAD mode reference
 - **references/connection-paradigms.md** — Connection model reference

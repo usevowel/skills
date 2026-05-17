@@ -26,7 +26,7 @@ Complete guide to integrating Vowel with state management systems.
 
 ### Implementation
 
-Create a custom hook that uses `useSyncContext` from `@vowel.to/client/react`. **Also export a `buildVowelContext()` function** callable outside React for the initial context push when creating the client (see **initialization-context-ready.md**).
+Create a custom hook that uses `useSyncContext` from `@vowel.to/client/react`. For the initial context push when creating the client, call `vowel.updateContext(initialState)` directly.
 
 ```typescript
 // hooks/useAppStateSync.ts or vowel.state.ts

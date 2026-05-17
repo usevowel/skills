@@ -1,278 +1,79 @@
 # Initialization and Context-Ready Patterns
 
-Ensure the Vowel client is initialized only after app context (stores, localStorage) is ready, and that the AI has meaningful state from the first turn.
+Ensure the Vowel client has meaningful app state from the first turn.
 
-## Why Context-Ready Matters
+## Core Concepts
 
-- **App stores may load from localStorage** - userName, language, preferences are often in localStorage. If you create the Vowel client at module load, those values may be empty.
-- **Context may not be populated on first turn** - `useSyncContext` runs inside the route tree. The session can start before the first sync. The AI needs a way to get state for the initial greeting.
-- **STT/TTS language** - `voiceConfig.language` should match the user's stored preference. Initialize the client after that preference is loaded.
+**Create the client → Push initial context → Done.**
 
-## Router Init Guard (TanStack)
+There's no need for module-level state management wrappers (`setAppId`, `getVowel`, `subscribeToVowelChanges`) or loading gates. Just create the client when you have the data you need and pass it to `VowelProvider`.
 
-Avoid initialization-order cycles between router and client setup. If `vowel.client.ts` uses router adapters, define router in dedicated `router.ts` and import that instance in both entry and client modules.
-
-This prevents runtime failures such as:
-
-`vowel.client.ts:44 Uncaught ReferenceError: Cannot access 'router' before initialization`
-
-## Pattern 0: Demo-Proven AppIdProvider Flow (`demos/demo`)
-
-The `demos/demo` app uses an `AppIdProvider` wrapper to load/collect appId first, then calls `setAppId` from `useEffect`. `App.tsx` subscribes to client changes and passes the current client into `VowelProvider`.
-
-This prevents the common "mic button never appears" failure caused by never calling `setAppId`.
-
-```typescript
-// main.tsx
-<AppIdProvider>
-  <App />
-</AppIdProvider>
-```
-
-```typescript
-// AppIdProvider.tsx
-useEffect(() => {
-  if (appId) setAppId(appId);
-}, [appId]);
-```
-
-```typescript
-// App.tsx
-const [vowel, setVowel] = useState<VowelClientType>(getVowel());
-
-useEffect(() => {
-  const unsubscribe = subscribeToVowelChanges((newClient) => setVowel(newClient));
-  return () => unsubscribe();
-}, []);
-
-return (
-  <VowelProvider client={vowel as any}>
-    <RouterProvider router={router} />
-  </VowelProvider>
-);
-```
-
-If your app does not have an AppId dialog/provider, use Pattern 1 (`setAppId` from mount effect) plus Pattern 4 (loading gate).
-
-## Pattern 1: Deferred Client Initialization
-
-**Do NOT call `setAppId` at module load.** Call it from `useEffect` after the App mounts so stores are populated.
-
-```typescript
-// App.tsx - BAD: init at module load
-setAppId(import.meta.env.VITE_VOWEL_APP_ID);  // ❌ Stores may not be loaded yet
-
-// App.tsx - GOOD: init after mount
-function useVowelInit() {
-  useEffect(() => {
-    const appId = import.meta.env.VITE_VOWEL_APP_ID;
-    if (appId) setAppId(appId);
-  }, []);
-}
-```
-
-## Pattern 2: Push Initial Context After Creating Client
-
-Immediately after creating the Vowel client, push the current state so the AI has context before the first turn.
+## Basic Pattern
 
 ```typescript
 // vowel.client.ts
-export function setAppId(appId: string) {
-  if (!appId) return;
-  currentAppId = appId;
-  vowelInstance = createVowelClient(appId);
-  /** Push initial context from stores (userName, language, appState, etc.) */
-  vowelInstance.updateContext(buildVowelContext());
-  console.log("✅ Vowel client initialized with App ID:", appId);
-  vowelChangeListeners.forEach((listener) => listener(vowelInstance));
-}
-```
+import { Vowel, createTanStackAdapters } from '@vowel.to/client';
+import { router } from './router';
 
-## Pattern 3: Shared buildVowelContext (Callable Outside React)
-
-Export a `buildVowelContext()` that can be called both inside React (with route override) and outside React (uses router.state.location).
-
-```typescript
-// vowel.state.ts
-/** Route/URL state for Vowel context */
-export interface RouteContext {
-  pathname: string;
-  pathnameLabel: string;
-  search: string;
-}
-
-/**
- * Build the Vowel context object from current app store state.
- * Used for initial context when creating the client and for ongoing sync.
- * Callable outside React (e.g. from vowel.client when creating the client).
- *
- * @param routeOverride - Optional. When omitted, uses router.state.location.
- *   When provided, uses the given values (for VowelStateSync which has useRouterState).
- */
-export function buildVowelContext(routeOverride?: RouteContext) {
-  const app = snapshot(appStore);
-  const route = routeOverride ?? (() => {
-    const loc = router.state.location;
-    return {
-      pathname: loc.pathname,
-      pathnameLabel: getPathnameLabel(loc.pathname),
-      search: searchToString(loc.search),
-    };
-  })();
-
+function buildInitialContext() {
+  const loc = router.state.location;
   return {
-    route,
-    ui: { currentScreen: route.pathnameLabel },
-    userName: app.userName,
-    language: app.language,
+    route: {
+      pathname: loc.pathname,
+      pathnameLabel: loc.pathname || 'Home',
+      search: String(loc.search),
+    },
   };
 }
+
+export function createVowelClient(apiKey: string) {
+  const { navigationAdapter } = createTanStackAdapters({
+    router: router as any,
+    enableAutomation: false,
+  });
+
+  const vowel = new Vowel({
+    apiKey,
+    navigationAdapter,
+    voiceConfig: {
+      provider: 'vowel-prime',
+      // ... rest of config
+    },
+  });
+
+  // Push initial context so the AI has state from turn 1
+  vowel.updateContext(buildInitialContext());
+
+  registerCustomActions(vowel);
+  return vowel;
+}
 ```
-
-## Pattern 4: Loading Gate Until Client Is Ready
-
-Don't render `VowelProvider` until the client exists. Show a loading placeholder so the user doesn't see a broken state.
 
 ```typescript
 // App.tsx
-function AppContent() {
-  const [vowel, setVowel] = useState<VowelClientType>(getVowel());
-  const appId = import.meta.env.VITE_VOWEL_APP_ID;
+import { VowelProvider, VowelAgent } from '@vowel.to/client/react';
+import { createVowelClient } from './vowel.client';
 
-  useEffect(() => {
-    const unsubscribe = subscribeToVowelChanges((client) => setVowel(client));
-    return () => unsubscribe();
-  }, []);
-
-  const vowelReady = vowel !== null || !appId;
-  if (!vowelReady) {
-    return <AppLoading />;
-  }
-
-  return (
-    <VowelProvider client={vowel ?? null}>
-      <RouterProvider router={router} />
-    </VowelProvider>
-  );
-}
+const vowel = createVowelClient(import.meta.env.VITE_VOWEL_API_KEY);
 
 function App() {
   return (
-    <>
-      <VowelInit />   {/* Runs outside gate - setAppId runs on mount */}
-      <AppContent />  {/* Shows loading until client ready */}
-    </>
+    <VowelProvider client={vowel}>
+      <RouterProvider router={router} />
+      <VowelAgent position="bottom-right" />
+    </VowelProvider>
   );
 }
 ```
 
-### Startup Deadlock Guard
+## Context Is Always Available
 
-This loading-gate pattern is only safe if the initializer is mounted before or outside the gate.
+Context is **baked into the token request** before the session starts — no race condition, no fallback action needed.
 
-Deadlock shape to catch in reviews and codegen:
+- Use `vowel.updateContext({ ... })` to push state at any time
+- Use `useSyncContext({ ... })` in React components for automatic re-syncs
+- The AI sees context in the `<context>` section of every turn
 
-- Root/layout renders loading until `xReady`
-- The component or hook that initializes `X` only mounts after `xReady` is true
-- Result: `xReady` can never flip, so the app stays on the loading screen forever
+## Router Init Order
 
-Required checks:
-
-- If rendering is gated on `vowelReady`, `setAppId` or equivalent init must run outside that gated subtree
-- Any readiness-gated dependency must initialize unconditionally on mount, not only after the ready branch renders
-- For optional integrations, wrap init in `try/catch`, log failures, and continue rendering without the integration
-- Verify hook APIs carefully so setup is not skipped due to incorrect assumptions about return values or invocation style
-
-Suggested review rule:
-
-> If a React root/layout gates rendering on X being ready, ensure the initializer for X is not mounted behind that same gate. Optional integrations must initialize before the gate or fail open instead of blocking the entire app.
-
-Fail-open example for an optional integration:
-
-```typescript
-function useVowelInit() {
-  useEffect(() => {
-    const appId = import.meta.env.VITE_VOWEL_APP_ID;
-    if (!appId) return;
-
-    try {
-      setAppId(appId);
-    } catch (error) {
-      console.error('Vowel init failed; continuing without voice integration', error);
-    }
-  }, []);
-}
-```
-
-## Pattern 5: subscribeToVowelChanges - Sync on Subscribe
-
-When a component subscribes, immediately invoke the listener with the current client if one exists (handles race where client was created before subscription).
-
-```typescript
-export function subscribeToVowelChanges(listener: VowelChangeListener): () => void {
-  vowelChangeListeners.add(listener);
-  if (vowelInstance) {
-    listener(vowelInstance);  // Sync immediately - handles race
-  }
-  return () => vowelChangeListeners.delete(listener);
-}
-```
-
-## Pattern 6: Config Sync When Language/User Changes
-
-When `language` or `userName` changes (affects STT/TTS and initial greeting), recreate the client so the next session uses the new values.
-
-```typescript
-// App.tsx
-function useVowelConfigSync() {
-  useEffect(() => {
-    const unsubLang = subscribeKey(appStore, "language", () => syncVowelLanguage());
-    const unsubName = subscribeKey(appStore, "userName", () => syncVowelLanguage());
-    return () => {
-      unsubLang();
-      unsubName();
-    };
-  }, []);
-}
-
-// vowel.client.ts
-export function syncVowelLanguage() {
-  if (currentAppId) {
-    vowelInstance = createVowelClient(currentAppId);
-    vowelInstance.updateContext(buildVowelContext());
-    vowelChangeListeners.forEach((listener) => listener(vowelInstance));
-  }
-}
-```
-
-## Pattern 7: VowelStateSync Inside Route Tree
-
-Mount `VowelStateSync` inside the root route (inside both `RouterProvider` and `VowelProvider`) so it has access to `useRouterState` and `useSyncContext`.
-
-```typescript
-// routes/__root.tsx
-function RootComponent() {
-  return (
-    <div className="min-h-dvh flex flex-col">
-      <VowelStateSync />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-      <VowelAgent position="bottom-right" enableFloatingCursor={false} />
-    </div>
-  );
-}
-```
-
-## Summary Checklist
-
-- [ ] Call `setAppId` from `useEffect` after App mounts, not at module load
-- [ ] Push `buildVowelContext()` immediately after creating the client
-- [ ] Export `buildVowelContext` callable outside React (no hooks)
-- [ ] Show loading until `vowel !== null || !appId` before rendering VowelProvider
-- [ ] Sync listener immediately on subscribe if client already exists
-- [ ] Recreate client when language/userName changes (if they affect voice config)
-- [ ] Mount VowelStateSync inside root route (inside RouterProvider + VowelProvider)
-- [ ] **Next.js:** Client-visible `appId` uses **`NEXT_PUBLIC_VOWEL_APP_ID`** (not `VOWEL_APP_ID` alone for browser code)
-- [ ] **Next.js / React:** Pass the Vowel instance into `VowelProvider` via **`useState`** (and subscription or init callback), not only a module-level variable updated in a nested `useEffect`
-- [ ] **Next.js:** Use **`import { Vowel } from '@vowel.to/client'`** unless you deliberately load the standalone **`vowel-voice-widget`** script and **`public/vowel/`** assets
+For TanStack Router, create the router in a dedicated `router.ts` module. Import that shared instance in both `vowel.client.ts` and `App.tsx`. Never import `vowel.client.ts` from `router.ts` — this prevents `Cannot access 'router' before initialization` errors.

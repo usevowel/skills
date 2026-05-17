@@ -35,44 +35,18 @@ declare module '@tanstack/react-router' {
 import { Vowel, createTanStackAdapters } from '@vowel.to/client';
 import { router } from './router';
 
-// App ID management
-let currentAppId: string | null = null;
-let vowelInstance: Vowel | null = null;
-
-// Listeners for vowel instance changes
-type VowelChangeListener = (client: Vowel | null) => void;
-const vowelChangeListeners = new Set<VowelChangeListener>();
-
-function createVowelClient(appId: string): Vowel {
-  // ⚠️ CRITICAL: Create adapters inside the factory, not at module scope.
-  // This prevents "Cannot access 'router' before initialization" runtime failures.
-  const { navigationAdapter, automationAdapter } = createTanStackAdapters({
+export function createVowelClient(apiKey: string) {
+  const { navigationAdapter } = createTanStackAdapters({
     router: router as any,
-    enableAutomation: false  // ❌ Disabled by default - only enable if user explicitly requests it
+    enableAutomation: false
   });
 
   const vowel = new Vowel({
-    appId: appId,
+    apiKey,
     instructions: `[See instructions section]`,
     navigationAdapter,
-    // ❌ Automation adapter disabled by default - uncomment only if user explicitly enables it
-    // automationAdapter,
     floatingCursor: { enabled: false },
-    borderGlow: {
-      enabled: true,
-      color: 'rgba(99, 102, 241, 0.5)',
-      intensity: 30,
-      pulse: true
-    },
-    // ✅ Enable captions by default
-    // @ts-ignore - internal caption config may not be fully typed in all builds
-    _caption: {
-      enabled: true,
-      position: 'top-center',
-      maxWidth: '600px',
-      showRole: true,
-      showOnMobile: false
-    },
+    _caption: { enabled: true },
     voiceConfig: {
       provider: 'vowel-prime',
       vowelPrimeConfig: { environment: 'staging' },
@@ -82,66 +56,32 @@ function createVowelClient(appId: string): Vowel {
       language: 'en-US',
       initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using route and context, then ask how you can help.`
     },
-    onUserSpeakingChange: (isSpeaking) => {
-      console.log(isSpeaking ? '🗣️ User started speaking' : '🔇 User stopped speaking');
-    },
-    onAIThinkingChange: (isThinking) => {
-      console.log(isThinking ? '🧠 AI started thinking' : '💭 AI stopped thinking');
-    },
-    onAISpeakingChange: (isSpeaking) => {
-      console.log(isSpeaking ? '🔊 AI started speaking' : '🔇 AI stopped speaking');
-    },
   });
 
   registerCustomActions(vowel);
   return vowel;
 }
 
-export function setAppId(appId: string) {
-  currentAppId = appId;
-  vowelInstance = createVowelClient(appId);
-  console.log('✅ Vowel client initialized with App ID:', appId);
-  vowelChangeListeners.forEach(listener => listener(vowelInstance));
-}
-
-export function getVowel(): Vowel | null {
-  return vowelInstance;
-}
-
-export function subscribeToVowelChanges(listener: VowelChangeListener): () => void {
-  vowelChangeListeners.add(listener);
-  return () => { vowelChangeListeners.delete(listener); };
-}
-
 function registerCustomActions(vowel: Vowel) {
   // Register custom actions here
 }
-
-export type VowelClientType = Vowel | null;
 ```
 
 ### App Integration (`src/App.tsx`)
 
 ```typescript
-import { useState, useEffect } from 'react';
+import { VowelProvider, VowelAgent } from '@vowel.to/client/react';
 import { RouterProvider } from '@tanstack/react-router';
-import { VowelProvider } from '@vowel.to/client/react';
 import { router } from './router';
-import { getVowel, subscribeToVowelChanges, type VowelClientType } from './vowel.client';
+import { createVowelClient } from './vowel.client';
+
+const vowel = createVowelClient(import.meta.env.VITE_VOWEL_API_KEY);
 
 function App() {
-  const [vowel, setVowel] = useState<VowelClientType>(getVowel());
-
-  useEffect(() => {
-    const unsubscribe = subscribeToVowelChanges((newClient) => {
-      setVowel(newClient);
-    });
-    return () => { unsubscribe(); };
-  }, []);
-
   return (
-    <VowelProvider client={vowel as any}>
+    <VowelProvider client={vowel}>
       <RouterProvider router={router} />
+      <VowelAgent position="bottom-right" enableFloatingCursor={false} />
     </VowelProvider>
   );
 }
@@ -178,44 +118,28 @@ export const Route = createRootRoute({
 
 ### Pitfalls (common after vowelbot or hand-rolled integrations)
 
-1. **Env:** Use **`NEXT_PUBLIC_VOWEL_APP_ID`** for any client-side `appId`. **`VOWEL_APP_ID` alone** is not inlined into the browser bundle, so the client sees an empty `appId`, **`VowelAppWrapper` bails out**, and **`VowelProvider` / `VowelAgent` never mount**. See **SKILL.md** → *Next.js — Public env vars and API keys*.
+1. **Env:** Use **`NEXT_PUBLIC_VOWEL_APP_ID`** for any client-side `appId`. **`VOWEL_APP_ID` alone** is not inlined into the browser bundle.
 
-2. **API keys:** Standard **platform `appId` flow** does not use a long-lived **`vkey_*`** in the frontend (server-only). Adding one to `.env` does not fix a missing mic unless you use a different connection model (for example backend tokens).
+2. **API keys:** Standard **platform `appId` flow** does not use a long-lived **`vkey_*`** in the frontend (server-only).
 
-3. **`window.Vowel`:** The skill expects **`import { Vowel, createNextJSAdapters } from '@vowel.to/client'`** and **`new Vowel(...)`**. Code that does **`new window.Vowel`** must load the standalone script (for example **`/vowel/vowel-voice-widget.min.js`**) and **`public/vowel/`** assets; otherwise **`window.Vowel` is undefined** and init fails with **"Vowel SDK not loaded"**.
+3. **`window.Vowel`:** The skill expects **`import { Vowel, createNextJSAdapters } from '@vowel.to/client'`** and **`new Vowel(...)`**. Using `window.Vowel` requires the standalone widget script.
 
-4. **`VowelProvider client`:** The instance must be held in **React state** (or otherwise trigger a re-render) in the **same** tree as `VowelProvider`. A **module-level** client set only in a **child `useEffect`** leaves **`client={null}`** on the parent. Under **Strict Mode**, avoid a sticky **`initialized` flag** that blocks the second mount.
+4. **`VowelProvider client`:** Pass the Vowel instance directly — a simple module-level `createVowelClient()` call works as long as environment variables are available at module load time.
 
 ### Vowel Client (`vowel.client.ts`)
 
 ```typescript
 import { Vowel, createNextJSAdapters } from '@vowel.to/client';
-import { useRouter } from 'next/navigation';
 
 export function createVowelClient() {
-  const router = useRouter();
-  
-  // ⚠️ CRITICAL: Automation adapter should be disabled by default
-  const { navigationAdapter, automationAdapter } = createNextJSAdapters(router, {
-    routes: [
-      { path: '/', description: 'Home page' },
-      { path: '/products', description: 'Product catalog' },
-      { path: '/cart', description: 'Shopping cart' },
-    ],
-    enableAutomation: false  // ❌ Disabled by default
-  });
+  const { navigationAdapter } = createNextJSAdapters(/* router, { routes: [...], enableAutomation: false } */);
 
   const vowel = new Vowel({
     appId: process.env.NEXT_PUBLIC_VOWEL_APP_ID || 'your-app-id',
     navigationAdapter,
-    // ❌ Automation adapter disabled by default
-    // automationAdapter,
-    floatingCursor: { enabled: false },
-    // @ts-ignore - internal caption config may not be fully typed in all builds
     _caption: { enabled: true },
     voiceConfig: {
       voice: 'Puck',
-      vadType: 'simple',
       initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
     }
   });
@@ -235,17 +159,11 @@ function registerCustomActions(vowel: Vowel) {
 'use client';
 
 import { VowelProvider, VowelAgent } from '@vowel.to/client/react';
-import { useState, useEffect } from 'react';
 import { createVowelClient } from '@/vowel.client';
 
+const vowelClient = createVowelClient();
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [vowelClient, setVowelClient] = useState(null);
-
-  useEffect(() => {
-    const client = createVowelClient();
-    setVowelClient(client);
-  }, []);
-
   return (
     <html lang="en">
       <body>
@@ -265,35 +183,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 ```typescript
 import { Vowel, createReactRouterAdapters } from '@vowel.to/client';
-import { useNavigate, useLocation } from 'react-router-dom';
 
 export function createVowelClient() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  
-  // ⚠️ CRITICAL: Automation adapter should be disabled by default
-  const { navigationAdapter, automationAdapter } = createReactRouterAdapters({
-    navigate,
-    location,
+  // Create adapters with navigate/getCurrentPath callbacks
+  // See createDirectAdapters for the generic pattern
+  const { navigationAdapter } = createReactRouterAdapters({
+    navigate: (path) => { /* router navigate */ },
+    location: window.location,
     routes: [
       { path: '/', description: 'Home page' },
       { path: '/products', description: 'Product catalog' },
-      { path: '/cart', description: 'Shopping cart' },
     ],
-    enableAutomation: false  // ❌ Disabled by default
+    enableAutomation: false
   });
 
   const vowel = new Vowel({
-    appId: process.env.REACT_APP_VOWEL_APP_ID || 'your-app-id',
+    apiKey: process.env.VITE_VOWEL_API_KEY || 'your-api-key',
     navigationAdapter,
-    // ❌ Automation adapter disabled by default
-    // automationAdapter,
-    floatingCursor: { enabled: false },
-    // @ts-ignore - internal caption config may not be fully typed in all builds
     _caption: { enabled: true },
     voiceConfig: {
       voice: 'Puck',
-      vadType: 'simple',
       initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
     }
   });
@@ -312,20 +221,17 @@ function registerCustomActions(vowel: Vowel) {
 ```typescript
 import { VowelProvider, VowelAgent } from '@vowel.to/client/react';
 import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
-import { useMemo } from 'react';
 import { createVowelClient } from './vowel.client';
 
-function Layout() {
-  const vowelClient = useMemo(() => createVowelClient(), []);
+const vowel = createVowelClient();
 
+function Layout() {
   return (
-    <VowelProvider client={vowelClient}>
+    <VowelProvider client={vowel}>
       <div className="min-h-screen">
         <nav>{/* Your navigation */}</nav>
-        <main>
-          <Outlet />
-        </main>
-        <VowelAgent position="bottom-right" enableFloatingCursor={false} />
+        <main><Outlet /></main>
+        <VowelAgent position="bottom-right" />
       </div>
     </VowelProvider>
   );
@@ -354,28 +260,23 @@ For any other routing solution:
 ```typescript
 import { Vowel, createDirectAdapters } from '@vowel.to/client';
 
-export function createVowelClient(router: any) {
-  // ⚠️ CRITICAL: Automation adapter should be disabled by default
-  const { navigationAdapter, automationAdapter } = createDirectAdapters({
-    navigate: (path) => router.push(path),
+export function createVowelClient(apiKey: string) {
+  const { navigationAdapter } = createDirectAdapters({
+    navigate: (path) => { history.pushState({}, '', path); },
+    getCurrentPath: () => window.location.pathname,
     routes: [
       { path: '/', description: 'Home page' },
       { path: '/products', description: 'Product catalog' },
     ],
-    enableAutomation: false  // ❌ Disabled by default
+    enableAutomation: false
   });
 
   const vowel = new Vowel({
-    appId: process.env.VITE_VOWEL_APP_ID || 'your-app-id',
+    apiKey,
     navigationAdapter,
-    // ❌ Automation adapter disabled by default
-    // automationAdapter,
-    floatingCursor: { enabled: false },
-    // @ts-ignore - internal caption config may not be fully typed in all builds
     _caption: { enabled: true },
     voiceConfig: {
       voice: 'Puck',
-      vadType: 'simple',
       initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
     }
   });
@@ -478,4 +379,4 @@ import { useRouter } from 'next/navigation'; // App Router (new)
 
 **Instantiation:** Prefer **`new Vowel`** from **`@vowel.to/client`**. **`window.Vowel`** requires the standalone widget script and **`public/vowel/`**; missing script → **"Vowel SDK not loaded"**.
 
-**Provider state:** Match the TanStack pattern in **SKILL.md**: **`useState` + `subscribeToVowelChanges`** (or set state where `VowelProvider` lives) so `client` updates after async init.
+**Provider state:** Pass the Vowel instance directly to `VowelProvider`. Create it at module level if env vars are available synchronously, or in a `useEffect` + state if loaded asynchronously.

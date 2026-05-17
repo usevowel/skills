@@ -193,5 +193,5 @@ If the app has its own programmatically controllable chat or AI, Vowel can deleg
 - **Mic not working:** HTTPS required (localhost exempted). Check browser permissions.
 - **Vowel undefined:** Script not loaded; use `import { Vowel } from '@vowel.to/client'` (not `window.Vowel`) unless using standalone bundle.
 - **Actions ignored:** Were they registered before `startSession()`?
-- **Wrong state on first turn:** Push `updateContext(buildVowelContext())` immediately after creating the client. Context is included in the token request.
+- **Wrong state on first turn:** Push `updateContext(initialState)` immediately after creating the client. Context is included in the token request.
 - **Client null / Provider not mounting:** Verify `appId`/`apiKey` reaches `new Vowel()`. Next.js: use `NEXT_PUBLIC_` prefix.
