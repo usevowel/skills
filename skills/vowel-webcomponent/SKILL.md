@@ -126,7 +126,7 @@ The AI agent must NOT reach for this config unless the user **explicitly** asks 
   api-key="vkey_public_xxx"
   position="bottom-right"
   show-transcripts="true"
-  config='{"_voiceConfig":{"provider":"vowel-prime","vowelPrimeConfig":{"environment":"testing"},"llmProvider":"groq","model":"openai/gpt-oss-120b","voice":"Timothy","language":"en-US"}}'
+  config='{"_voiceConfig":{"provider":"vowel-prime","vowelPrimeConfig":{"environment":"testing"},"llmProvider":"groq","model":"openai/gpt-oss-120b","voice":"Timothy","language":"en-US","stt":{"provider":"groq-whisper"},"tts":{"provider":"grok"}}}'
   preset="vanilla">
 </vowel-voice-widget>
 ```

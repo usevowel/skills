@@ -165,7 +165,9 @@ _voiceConfig: {
   model: "openai/gpt-oss-120b",
   voice: 'Timothy',
   language: 'en-US',
-  initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`
+  initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`,
+  stt: { provider: 'groq-whisper' },
+  tts: { provider: 'grok' },
 }
 ```
 

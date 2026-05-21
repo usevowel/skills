@@ -340,6 +340,8 @@ _voiceConfig: {
   voice: 'Timothy',
   language: 'en-US',
   initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using available context, then ask what they want to do.`,
+  stt: { provider: 'groq-whisper' },
+  tts: { provider: 'grok' },
 }
 ```
 
