@@ -6,7 +6,7 @@ Essential context for integrating the vowel voice AI platform into React applica
 
 **vowel** (lowercase) is a SaaS platform that enables developers to add AI-powered voice agents to any web application. It provides:
 
-- **Real-time Voice Interface** - Powered by Google Gemini Live API, OpenAI Realtime API, or vowel-prime (custom backend)
+- **Real-time Voice Interface** - Powered by **Vowel Core** (self-hosted engine), **Vowel Prime** (hosted SaaS), Google Gemini Live API, or OpenAI Realtime API
 - **Smart Navigation** - AI understands app routes and navigates via voice commands
 - **Custom Actions** - Business logic the AI can execute via voice (e.g., add to cart, search products)
 - **Page Automation** - Voice-controlled DOM interaction (click, type, search) - optional, disabled by default in React
@@ -42,7 +42,7 @@ Vowel supports multiple connection patterns: **platform-managed** (appId), **dev
 ### Supported Languages and VAD
 
 - **Languages**: Of 99+ Whisper languages (client VAD), only those Inworld TTS can speak are fully supported (12: en, es, fr, de, it, pt, ko, zh, ja, nl, pl, ru). AssemblyAI (server VAD) supports 6. See **references/languages-and-vad.md**.
-- **VAD modes**: `client_vad` (default, silero-vad), `server_vad` (AssemblyAI/Fennec), `semantic_vad`, `disabled`.
+- **VAD modes**: `server_vad` (default, AssemblyAI/Fennec), `client_vad` (silero-vad), `semantic_vad`, `disabled`.
 
 ### Connection Flow
 

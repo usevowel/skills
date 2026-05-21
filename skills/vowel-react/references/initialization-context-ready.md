@@ -35,8 +35,9 @@ export function createVowelClient(apiKey: string) {
   const vowel = new Vowel({
     apiKey,
     navigationAdapter,
-    voiceConfig: {
-      provider: 'vowel-prime',
+    _voiceConfig: {
+      provider: 'vowel-core',
+      turnDetection: { mode: 'server_vad' },
       // ... rest of config
     },
   });

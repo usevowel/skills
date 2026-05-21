@@ -62,8 +62,8 @@ interface VowelConfig {
   language: string;
   initialGreetingPrompt: string;
   _voiceConfig: {
-    provider?: 'vowel-prime';
-    vowelPrimeConfig?: { environment: 'staging' };
+    provider?: 'vowel-core' | 'vowel-prime';
+    vowelPrimeConfig?: { environment: string };
     llmProvider?: 'groq';
     model?: string;
     voice?: string;
@@ -242,11 +242,8 @@ function buildVoiceConfig(credentials: StoredCredentials): VowelConfig {
     language: 'en-US',
     initialGreetingPrompt: `Welcome the user to the emdash docs by saying "Welcome to the emdash docs. How can I help?"`,
     _voiceConfig: {
-      provider: 'vowel-prime' as const,
-      vowelPrimeConfig: { environment: 'staging' as const },
-      llmProvider: 'groq' as const,
-      model: 'openai/gpt-oss-120b',
-      voice: 'Timothy',
+      provider: 'vowel-core' as const,
+      voice: 'af_heart',
       turnDetection: {
         mode: 'server_vad' as const,
       },

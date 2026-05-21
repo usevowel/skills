@@ -107,11 +107,9 @@ async function buildVowelConfig(router: any, credentials: StoredCredentials): Pr
   const baseConfig: Partial<VowelConfig> = {
     navigationAdapter,
     automationAdapter,
-    voiceConfig: {
-      provider: 'vowel-prime',
-      llmProvider: 'groq',
-      model: 'openai/gpt-oss-20b',
-      voice: 'Ashley',
+    _voiceConfig: {
+      provider: 'vowel-core',
+      voice: 'af_heart',
       language: 'en-US',
       turnDetection: { mode: 'server_vad' },
     },
@@ -133,6 +131,18 @@ async function buildVowelConfig(router: any, credentials: StoredCredentials): Pr
   }
   throw new Error('Invalid credentials configuration')
 }
+
+## ⚠️ INTERNAL: Vowel Prime SaaS Mode
+
+This configuration path is for **internal vowel team testing** of the hosted Vowel Prime SaaS deployment. It is NOT for general self-hosted use.
+
+The AI agent must NOT reach for this config unless the user **explicitly** asks for Vowel Prime or provides Vowel Prime credentials.
+
+**Default behavior:** Self-hosted Vowel Core with a `tokenEndpoint`. The credential modal already supports self-hosted mode. Do not default to Vowel Prime.
+
+See **vowel-client/SKILL.md** for the Vowel Prime config example, environment reference table, and dev-only override docs.
+
+---
 
 function getSystemInstruction(): string {
   return `You are a helpful voice assistant for this documentation site.

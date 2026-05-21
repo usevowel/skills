@@ -135,13 +135,11 @@ Help users navigate and interact with the application by modifying state through
       showOnMobile: false
     },
     
-    voiceConfig: {
-      provider: 'vowel-prime',
-      vowelPrimeConfig: { environment: 'staging' },
-      llmProvider: 'groq',
-      model: "openai/gpt-oss-120b",
-      voice: 'Timothy',
+    _voiceConfig: {
+      provider: 'vowel-core',
+      voice: 'af_heart',
       language: 'en-US',
+      turnDetection: { mode: 'server_vad' },
       initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using available context (route/page and user state), then ask what they want to do next.`,
     },
   });
@@ -324,6 +322,28 @@ Current application state is automatically provided in the <context> section. Yo
 
 Help users interact with the application by modifying state through registered actions.`
 ```
+
+## ⚠️ INTERNAL: Vowel Prime SaaS Mode
+
+This configuration path is for **internal vowel team testing** of the hosted Vowel Prime SaaS deployment. It is NOT for general self-hosted use.
+
+The AI agent must NOT reach for this config unless the user **explicitly** asks for Vowel Prime or provides Vowel Prime credentials.
+
+**Default behavior:** Self-hosted Vowel Core with a `tokenEndpoint`. Do not default to Vowel Prime.
+
+```typescript
+_voiceConfig: {
+  provider: 'vowel-prime',
+  vowelPrimeConfig: { environment: 'testing' },
+  llmProvider: 'groq',
+  model: "openai/gpt-oss-120b",
+  voice: 'Timothy',
+  language: 'en-US',
+  initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using available context, then ask what they want to do.`,
+}
+```
+
+See **vowel-client/SKILL.md** for the full environment reference table and dev-only override docs.
 
 ## Troubleshooting (React-Specific)
 

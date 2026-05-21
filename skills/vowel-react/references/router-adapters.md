@@ -47,13 +47,11 @@ export function createVowelClient(apiKey: string) {
     navigationAdapter,
     floatingCursor: { enabled: false },
     _caption: { enabled: true },
-    voiceConfig: {
-      provider: 'vowel-prime',
-      vowelPrimeConfig: { environment: 'staging' },
-      llmProvider: 'groq',
-      model: "openai/gpt-oss-120b",
-      voice: 'Timothy',
+    _voiceConfig: {
+      provider: 'vowel-core',
+      voice: 'af_heart',
       language: 'en-US',
+      turnDetection: { mode: 'server_vad' },
       initialGreetingPrompt: `Welcome the user to this application. Briefly personalize using route and context, then ask how you can help.`
     },
   });
@@ -138,7 +136,7 @@ export function createVowelClient() {
     appId: process.env.NEXT_PUBLIC_VOWEL_APP_ID || 'your-app-id',
     navigationAdapter,
     _caption: { enabled: true },
-    voiceConfig: {
+    _voiceConfig: {
       voice: 'Puck',
       initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
     }
@@ -201,7 +199,7 @@ export function createVowelClient() {
     apiKey: process.env.VITE_VOWEL_API_KEY || 'your-api-key',
     navigationAdapter,
     _caption: { enabled: true },
-    voiceConfig: {
+    _voiceConfig: {
       voice: 'Puck',
       initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
     }
@@ -275,7 +273,7 @@ export function createVowelClient(apiKey: string) {
     apiKey,
     navigationAdapter,
     _caption: { enabled: true },
-    voiceConfig: {
+    _voiceConfig: {
       voice: 'Puck',
       initialGreetingPrompt: `Welcome the user to this application and briefly mention what they can do on this page.`
     }

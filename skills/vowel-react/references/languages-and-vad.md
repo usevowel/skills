@@ -40,10 +40,10 @@ Configure `voiceConfig.language` with an ISO 639-1 code (e.g., `en`, `es`, `zh`)
 
 ## STT/TTS Provider Override (Dev-Only)
 
-For development and testing, you can override the server-resolved STT and TTS providers via `voiceConfig.stt` and `voiceConfig.tts`. These are `@internal` dev-only fields — in production, the managed preset system resolves the optimal provider stack.
+For development and testing, you can override the server-resolved STT and TTS providers via `_voiceConfig.stt` and `_voiceConfig.tts`. These are `@internal` dev-only fields — in production, the managed preset or engine configuration resolves the optimal provider stack.
 
 ```typescript
-voiceConfig: {
+_voiceConfig: {
   // ... standard config ...
   stt: { provider: 'deepgram' },      // dev override
   tts: { provider: 'deepgram' },      // dev override
@@ -60,14 +60,14 @@ The `"none"` provider disables speech I/O — the session operates in text-only 
 
 ## VAD (Voice Activity Detection) Modes
 
-Turn detection controls when speech is detected and when the AI responds. Configure via `voiceConfig.turnDetection`.
+Turn detection controls when speech is detected and when the AI responds. Configure via `_voiceConfig.turnDetection`.
 
 ### Mode Comparison
 
 | Mode | Accuracy | Load Time | Use Case |
 |------|----------|-----------|----------|
-| **client_vad** (default) | High | 5–10s | Client-side ML (silero-vad). High accuracy, enables client-side interruptions. |
-| **server_vad** | High | Instant | Server-side VAD (AssemblyAI/Fennec). No client processing. |
+| **server_vad** (default) | High | Instant | Server-side VAD (AssemblyAI/Fennec). No client processing. |
+| **client_vad** | High | 5–10s | Client-side ML (silero-vad). High accuracy, enables client-side interruptions. |
 | **semantic_vad** | High | Instant | Server-side semantic VAD. Understands speech context. |
 | **disabled** | N/A | Instant | No VAD. Troubleshooting, bandwidth-constrained environments. |
 
@@ -81,7 +81,7 @@ Turn detection controls when speech is detected and when the AI responds. Config
 - Enables client-side interruptions (user can speak over AI).
 
 ```typescript
-voiceConfig: {
+_voiceConfig: {
   turnDetection: {
     mode: 'client_vad',
     clientVAD: {
@@ -96,11 +96,11 @@ voiceConfig: {
 
 - Runs on the server, integrated with streaming STT (AssemblyAI, Fennec).
 - No client-side model download.
-- Recommended for vowel-prime with AssemblyAI/Fennec STT.
+- Recommended for server-side VAD with streaming STT (AssemblyAI, Fennec).
 - Set `useServerVad: true` for UI updates driven by server VAD events.
 
 ```typescript
-voiceConfig: {
+_voiceConfig: {
   turnDetection: {
     mode: 'server_vad',
     serverVAD: {

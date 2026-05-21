@@ -9,7 +9,7 @@ Core reference for `@vowel.to/client`. Framework-specific skills (vowel-react, v
 
 ## What is Vowel?
 
-**vowel** (lowercase) is a SaaS platform that adds AI-powered voice agents to web applications. The `@vowel.to/client` package provides real-time voice interaction via vowel-prime, Gemini Live API, or OpenAI Realtime API. Key capabilities: **smart navigation** (voice-controlled routing), **custom actions** (business logic via voice), and optional **page automation** (DOM interaction).
+**vowel** (lowercase) adds AI-powered voice agents to web applications. The `@vowel.to/client` package provides real-time voice interaction via **Vowel Core** (self-hosted), **Vowel Prime** (SaaS), Gemini Live API, or OpenAI Realtime API. Key capabilities: **smart navigation** (voice-controlled routing), **custom actions** (business logic via voice), and optional **page automation** (DOM interaction).
 
 ## Connection Paradigms
 
@@ -33,36 +33,34 @@ For standalone/CDN usage, copy the standalone bundle:
 cp -r node_modules/@vowel.to/client/dist/standalone ./public/vowel
 ```
 
-## Core voiceConfig Reference
+## Core `_voiceConfig` Reference
 
-Use `voiceConfig` (or its escape-hatch alias `_voiceConfig`) to configure the voice session:
+`_voiceConfig` (the `VowelVoiceConfig` interface) is for specifying voice session overrides. In the standard **Vowel Core** self-hosted flow, the engine provides sensible defaults — you typically omit `_voiceConfig` entirely:
 
 ```typescript
-voiceConfig: {
-  provider: 'vowel-prime',           // 'vowel-prime' | 'gemini' | 'openai' | 'grok' | 'vowel-core'
-  vowelPrimeConfig: { environment: 'staging' },
-  llmProvider: 'groq',               // 'groq' | 'openrouter'
-  model: "openai/gpt-oss-120b",      // LLM model
-  voice: 'Timothy',                  // TTS voice name
-  language: 'en-US',                 // ISO 639-1 language code
+// Self-hosted Vowel Core — no _voiceConfig needed (engine provides defaults):
+const vowel = new Vowel({
+  apiKey: 'vkey_public_xxx',
+  tokenEndpoint: 'http://localhost:8080/api/token',
+  routes: [...],
+});
+
+// With explicit overrides (user requested specific settings):
+_voiceConfig: {
+  provider: 'vowel-core',           // 'vowel-core' | 'vowel-prime' | 'gemini' | 'openai' | 'grok'
+  voice: 'af_heart',
+  language: 'en-US',
+  turnDetection: { mode: 'server_vad' },
 
   initialGreetingPrompt: `Welcome to this application. Briefly personalize using available context, then ask what they want to do.`,
-
-  // DEV-ONLY: STT/TTS provider overrides (server presets used in production)
-  // stt: { provider: 'deepgram' },
-  // tts: { provider: 'deepgram' },
 }
 ```
 
+> **API note:** `_voiceConfig` (with underscore) is the current config path. The deprecated `voiceConfig` (no underscore) is a legacy alias — do not use it in new code.
+
 ### STT/TTS Provider Override (Dev-Only)
 
-`voiceConfig.stt` and `voiceConfig.tts` are `@internal` dev-only overrides for testing. In production, the managed preset system resolves the optimal stack.
-
-**Supported STT providers:** `deepgram`, `groq-whisper`, `assemblyai`, `fennec`, `modulate`, `grok`, `mistral-voxtral-realtime`, `none` (text-only).
-
-**Supported TTS providers:** `deepgram`, `inworld`, `grok`, `none` (text-only).
-
-The `"none"` provider disables speech I/O for text-only mode.
+`_voiceConfig.stt` and `_voiceConfig.tts` are `@internal` dev-only overrides for testing different speech provider backends. In production, the managed preset or engine configuration resolves the optimal stack.
 
 ### Turn Detection / VAD
 
@@ -70,22 +68,14 @@ Turn detection controls when speech is detected and when the AI responds:
 
 | Mode | Accuracy | Load Time | Use Case |
 |------|----------|-----------|----------|
-| **client_vad** (default) | High | 5-10s | Client-side ML (silero-vad). Best accuracy, client-side interruptions. |
-| **server_vad** | High | Instant | Server-side VAD (AssemblyAI/Fennec). No client processing. |
+| **server_vad** (default) | High | Instant | Server-side VAD (AssemblyAI/Fennec). No client processing. |
+| **client_vad** | High | 5-10s | Client-side ML (silero-vad). Best accuracy, client-side interruptions. |
 | **semantic_vad** | High | Instant | Server-side semantic VAD. Understands speech context. |
 | **disabled** | N/A | Instant | No VAD. Troubleshooting, bandwidth-constrained environments. |
 
 ```typescript
-// Client VAD (default)
-voiceConfig: {
-  turnDetection: {
-    mode: 'client_vad',
-    clientVAD: { adapter: 'silero-vad' },  // 'silero-vad' | 'simple-vad' | 'smart-turn'
-  },
-}
-
-// Server VAD
-voiceConfig: {
+// Server VAD (default)
+_voiceConfig: {
   turnDetection: {
     mode: 'server_vad',
     serverVAD: {
@@ -95,7 +85,14 @@ voiceConfig: {
       interruptResponse: true,
     },
   },
-  useServerVad: true,
+}
+
+// Client VAD
+_voiceConfig: {
+  turnDetection: {
+    mode: 'client_vad',
+    clientVAD: { adapter: 'silero-vad' },  // 'silero-vad' | 'simple-vad' | 'smart-turn'
+  },
 }
 ```
 
@@ -109,6 +106,51 @@ voiceConfig: {
 | **Inworld TTS** | Output engine | 12: en, es, fr, de, it, pt, ko, zh, ja, nl, pl, ru |
 
 Of the 99+ Whisper languages, vowel only supports those Inworld TTS can speak. Unsupported languages fall back to English voice.
+
+## ⚠️ INTERNAL: Vowel Prime SaaS Mode
+
+This configuration path is for **internal vowel team testing** of the hosted Vowel Prime SaaS deployment. It is NOT for general self-hosted use.
+
+The AI agent must NOT reach for this config unless the user **explicitly** asks for Vowel Prime or provides Vowel Prime credentials (e.g., a `vkey_*` publishable key that resolves to a Vowel Prime token issuer).
+
+**Default behavior:** Self-hosted Vowel Core with a `tokenEndpoint` pointing to the user's self-hosted core instance. Always start there.
+
+### Vowel Prime Config
+
+```typescript
+_voiceConfig: {
+  provider: 'vowel-prime',
+  vowelPrimeConfig: {
+    environment: 'testing',  // see environment table below
+  },
+  llmProvider: 'groq',
+  model: "openai/gpt-oss-120b",
+  voice: 'Timothy',
+  language: 'en-US',
+  initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`
+}
+```
+
+### Environment Reference
+
+| Environment  | URL                                           | Provider Type      |
+|--------------|-----------------------------------------------|--------------------|
+| `testing`    | `wss://testing-prime.vowel.to/v1/realtime`    | `vowel-prime`      |
+| `dev`        | `wss://dev-prime.vowel.to/v1/realtime`        | `vowel-prime`      |
+| `staging`    | `wss://staging.prime.vowel.to/v1/realtime`    | `vowel-prime`      |
+| `production` | `wss://prime.vowel.to/v1/realtime`            | `vowel-prime`      |
+| `billing-test` | `wss://billing-test.vowel.to/v1/realtime`   | `vowel-prime`      |
+| `testing-cfa`  | `wss://testing-cfa-prime.vowel.to`          | `cloudflare-voice` |
+
+### Dev-Only STT/TTS Override Reference
+
+`_voiceConfig.stt` and `_voiceConfig.tts` are `@internal` dev-only overrides:
+
+**Supported STT providers:** `deepgram`, `groq-whisper`, `assemblyai`, `fennec`, `modulate`, `grok`, `mistral-voxtral-realtime`, `none` (text-only).
+
+**Supported TTS providers:** `deepgram`, `inworld`, `grok`, `none` (text-only).
+
+The `"none"` provider disables speech I/O for text-only mode.
 
 ## Context Management
 
@@ -176,8 +218,8 @@ NEXT_PUBLIC_VOWEL_APP_ID=your-app-id
 # Create React App
 REACT_APP_VOWEL_APP_ID=your-app-id
 
-# Self-hosted URL override (optional)
-VITE_VOWEL_URL=wss://realtime.vowel.to/v1
+# Self-hosted core endpoint (optional — overrides Vowel Core engine URL)
+VITE_VOWEL_CORE_URL=http://localhost:8080
 ```
 
 ## Sub-Agent / Voice Control of App Chat or AI

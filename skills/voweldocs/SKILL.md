@@ -98,6 +98,16 @@ The goal is not a generic voice widget. The goal is to recreate the same VowelDo
 
 Treat this skill as the packaged VowelDocs product spec for supported documentation frameworks. When it fires, the expected outcome is that the target docs site adopts the VowelDocs paradigm, not merely "some Vowel integration."
 
+## ⚠️ INTERNAL: Vowel Prime SaaS Mode
+
+This configuration path is for **internal vowel team testing** of the hosted Vowel Prime SaaS deployment. It is NOT for general self-hosted use.
+
+The AI agent must NOT reach for this config unless the user **explicitly** asks for Vowel Prime or provides Vowel Prime credentials.
+
+**Default behavior:** Self-hosted Vowel Core with a `tokenEndpoint`. The credential modal already supports self-hosted mode via JWT or manual URL config. Do not default to Vowel Prime.
+
+See **vowel-client/SKILL.md** for the Vowel Prime config example, environment reference table, and dev-only override docs.
+
 ## Setup Overview
 
 ### Step 1: Install Dependencies

@@ -26,7 +26,7 @@ Call `startSession()` from a click/tap handler to satisfy browser audio/micropho
 
 ### 4) Default to App-Specific Greeting + Captions
 
-Set `voiceConfig.initialGreetingPrompt` to match the app's domain, and enable captions by default (`_caption.enabled = true`).
+Set `_voiceConfig.initialGreetingPrompt` to match the app's domain, and enable captions by default (`_caption.enabled = true`).
 
 ## Quick Start (Bundler / Module Import)
 
@@ -51,13 +51,11 @@ const vowel = new Vowel({
   navigationAdapter,
   automationAdapter,
   _caption: { enabled: true },
-  voiceConfig: {
-    provider: 'vowel-prime',
-    vowelPrimeConfig: { environment: 'staging' },
-    llmProvider: 'groq',
-    model: "openai/gpt-oss-120b",
-    voice: 'Timothy',
+  _voiceConfig: {
+    provider: 'vowel-core',
+    voice: 'af_heart',
     language: 'en-US',
+    turnDetection: { mode: 'server_vad' },
     initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`
   }
 });
@@ -93,13 +91,11 @@ micButton?.addEventListener('click', async () => {
     const vowel = new VowelCtor({
       apiKey: 'vkey_public_xxx',
       _caption: { enabled: true },
-      voiceConfig: {
-        provider: 'vowel-prime',
-        vowelPrimeConfig: { environment: 'staging' },
-        llmProvider: 'groq',
-        model: "openai/gpt-oss-120b",
-        voice: 'Timothy',
+      _voiceConfig: {
+        provider: 'vowel-core',
+        voice: 'af_heart',
         language: 'en-US',
+        turnDetection: { mode: 'server_vad' },
         initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`
       }
     });
@@ -138,13 +134,11 @@ const vowel = new Vowel({
   navigationAdapter,
   automationAdapter,
   _caption: { enabled: true },
-  voiceConfig: {
-    provider: 'vowel-prime',
-    vowelPrimeConfig: { environment: 'staging' },
-    llmProvider: 'groq',
-    model: "openai/gpt-oss-120b",
-    voice: 'Timothy',
+  _voiceConfig: {
+    provider: 'vowel-core',
+    voice: 'af_heart',
     language: 'en-US',
+    turnDetection: { mode: 'server_vad' },
     initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`
   }
 });
@@ -154,6 +148,28 @@ const vowel = new Vowel({
 
 - Subscribe with `vowel.onStateChange(...)` to drive button labels and status UI.
 - Use `vowel.notifyEvent(...)` for app-side notifications that should be spoken.
+
+## ⚠️ INTERNAL: Vowel Prime SaaS Mode
+
+This configuration path is for **internal vowel team testing** of the hosted Vowel Prime SaaS deployment. It is NOT for general self-hosted use.
+
+The AI agent must NOT reach for this config unless the user **explicitly** asks for Vowel Prime or provides Vowel Prime credentials.
+
+**Default behavior:** Self-hosted Vowel Core with a `tokenEndpoint`. Do not default to Vowel Prime.
+
+```ts
+_voiceConfig: {
+  provider: 'vowel-prime',
+  vowelPrimeConfig: { environment: 'testing' },
+  llmProvider: 'groq',
+  model: "openai/gpt-oss-120b",
+  voice: 'Timothy',
+  language: 'en-US',
+  initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`
+}
+```
+
+See **vowel-client/SKILL.md** for the full environment reference table and dev-only override docs.
 
 ## Troubleshooting
 

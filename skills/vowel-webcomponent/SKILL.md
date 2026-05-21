@@ -47,7 +47,7 @@ cp -r node_modules/@vowel.to/client/dist/standalone ./public/vowel
   app-id="your-app-id"
   position="bottom-right"
   show-transcripts="true"
-  config='{"voiceConfig":{"provider":"vowel-prime","vowelPrimeConfig":{"environment":"staging"},"llmProvider":"groq","model":"openai/gpt-oss-120b","voice":"Timothy","language":"en-US","initialGreetingPrompt":"Welcome the user to this application, briefly mention what this page is for, and ask how you can help."}}'
+  config='{"_voiceConfig":{"provider":"vowel-core","voice":"af_heart","language":"en-US","turnDetection":{"mode":"server_vad"},"initialGreetingPrompt":"Welcome the user to this application, briefly mention what this page is for, and ask how you can help."}}'
   preset="vanilla">
 </vowel-voice-widget>
 ```
@@ -60,13 +60,11 @@ cp -r node_modules/@vowel.to/client/dist/standalone ./public/vowel
   const widget = document.getElementById('voiceWidget');
 
   widget.setConfig({
-    voiceConfig: {
-      provider: 'vowel-prime',
-      vowelPrimeConfig: { environment: 'staging' },
-      llmProvider: 'groq',
-      model: 'openai/gpt-oss-120b',
-      voice: 'Timothy',
+    _voiceConfig: {
+      provider: 'vowel-core',
+      voice: 'af_heart',
       language: 'en-US',
+      turnDetection: { mode: 'server_vad' },
       initialGreetingPrompt: `Welcome the user to this application, briefly mention what this page is for, and ask how you can help.`
     }
   });
@@ -114,6 +112,26 @@ Use element methods after readiness:
 - `startSession()`, `stopSession()`, `toggleSession()`
 - `registerAction(name, definition, handler)`
 - `notifyEvent(message, context)`, `sendText(text)`
+
+## ⚠️ INTERNAL: Vowel Prime SaaS Mode
+
+This configuration path is for **internal vowel team testing** of the hosted Vowel Prime SaaS deployment. It is NOT for general self-hosted use.
+
+The AI agent must NOT reach for this config unless the user **explicitly** asks for Vowel Prime or provides Vowel Prime credentials.
+
+**Default behavior:** Self-hosted Vowel Core with a `tokenEndpoint`. Do not default to Vowel Prime.
+
+```html
+<vowel-voice-widget
+  api-key="vkey_public_xxx"
+  position="bottom-right"
+  show-transcripts="true"
+  config='{"_voiceConfig":{"provider":"vowel-prime","vowelPrimeConfig":{"environment":"testing"},"llmProvider":"groq","model":"openai/gpt-oss-120b","voice":"Timothy","language":"en-US"}}'
+  preset="vanilla">
+</vowel-voice-widget>
+```
+
+See **vowel-client/SKILL.md** for the full environment reference table and dev-only override docs.
 
 ## Troubleshooting
 
